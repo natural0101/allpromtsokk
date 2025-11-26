@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obsidian-like Notes</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Левая панель: дерево -->
+    <aside class="sidebar glass">
+      <div class="sidebar-header">
+        <h1>Заметки</h1>
+        <div class="sidebar-actions">
+          <button id="newFolderBtn" class="btn-icon" title="Создать папку">📁</button>
+          <button id="newNoteBtn" class="btn-icon" title="Создать заметку">📄</button>
+        </div>
+      </div>
+      <div id="treeContainer" class="tree-container">
+        <!-- Дерево будет отрендерено здесь -->
+      </div>
+    </aside>
+
+    <!-- Правая панель: редактор -->
+    <main class="editor glass">
+      <div id="editorContent" class="editor-content">
+        <div class="editor-placeholder">
+          <p>Выберите заметку слева для просмотра и редактирования</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
