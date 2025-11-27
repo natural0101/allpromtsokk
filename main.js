@@ -1,625 +1,553 @@
-// Типы данных
-// type Node = 
-//   | { type: 'folder'; id: string; title: string; children: Node[] }
-//   | { type: 'note'; id: string; title: string; content: string };
+// API Configuration
+const API_BASE = '/api';
 
-const DATA_URL = 'data.json';
-const STORAGE_KEY = 'obsidianNotesData';
+// State
+let prompts = [];
+let selectedPromptSlug = null;
+let currentPrompt = null;
+let isEditMode = false;
 
-let rootNodes = [];
-let selectedNodeId = null;
-let collapsedFolders = new Set();
-let contextMenuNode = null;
-let draggedNodeId = null;
-let dragOverNodeId = null;
+// ---------- API FUNCTIONS ----------
 
-// ---------- ЗАГРУЗКА ДАННЫХ ----------
-
-async function loadData() {
+async function fetchPrompts(folder = null, search = null) {
   try {
-    const response = await fetch(DATA_URL);
-    if (!response.ok) throw new Error('Ошибка загрузки data.json');
-    const data = await response.json();
+    const params = new URLSearchParams();
+    if (folder) params.append('folder', folder);
+    if (search) params.append('search', search);
     
-    // Проверяем localStorage
-    const saved = loadFromStorage();
-    if (saved && Array.isArray(saved) && saved.length > 0) {
-      rootNodes = saved;
-    } else {
-      rootNodes = data;
-      saveToStorage();
-    }
-    
-    renderTree();
+    const url = `${API_BASE}/prompts${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
   } catch (error) {
-    console.error('Ошибка загрузки данных:', error);
-    // Пробуем загрузить из localStorage
-    const saved = loadFromStorage();
-    if (saved && Array.isArray(saved)) {
-      rootNodes = saved;
-      renderTree();
-    } else {
-      rootNodes = [];
-      renderTree();
-    }
+    console.error('Ошибка загрузки промптов:', error);
+    throw error;
   }
 }
 
-function loadFromStorage() {
+async function fetchPromptBySlug(slug) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) {
-    console.warn('Ошибка чтения localStorage', e);
-    return null;
+    const response = await fetch(`${API_BASE}/prompts/${slug}`);
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Ошибка загрузки промпта:', error);
+    throw error;
   }
 }
 
-function saveToStorage() {
+async function createPrompt(data) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rootNodes));
-  } catch (e) {
-    console.warn('Ошибка записи localStorage', e);
+    const response = await fetch(`${API_BASE}/prompts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error('Ошибка создания промпта:', error);
+    throw error;
   }
 }
 
-// ---------- ПОИСК УЗЛОВ ----------
+async function updatePrompt(slug, data) {
+  try {
+    const response = await fetch(`${API_BASE}/prompts/${slug}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Ошибка обновления промпта:', error);
+    throw error;
+  }
+}
 
-function findNodeById(nodes, id) {
-  for (const node of nodes) {
-    if (node.id === id) return node;
-    if (node.type === 'folder' && node.children) {
-      const found = findNodeById(node.children, id);
-      if (found) return found;
+async function deletePrompt(slug) {
+  try {
+    const response = await fetch(`${API_BASE}/prompts/${slug}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      if (response.status === 404) return false;
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return true;
+  } catch (error) {
+    console.error('Ошибка удаления промпта:', error);
+    throw error;
+  }
+}
+
+// ---------- DATA LOADING ----------
+
+async function loadPrompts(folder = null, search = null) {
+  try {
+    prompts = await fetchPrompts(folder, search);
+    renderPromptsList();
+  } catch (error) {
+    console.error('Ошибка загрузки промптов:', error);
+    const container = document.getElementById('treeContainer');
+    if (container) {
+      container.innerHTML = '<div style="padding: 16px; color: #888; text-align: center;">Ошибка загрузки промптов. Проверьте подключение к серверу.</div>';
     }
   }
-  return null;
 }
 
-function findParentNode(nodes, targetId, parent = null) {
-  for (const node of nodes) {
-    if (node.id === targetId) return parent;
-    if (node.type === 'folder' && node.children) {
-      const found = findParentNode(node.children, targetId, node);
-      if (found !== null) return found;
+async function loadPrompt(slug) {
+  try {
+    const prompt = await fetchPromptBySlug(slug);
+    if (!prompt) {
+      renderEditor(null);
+      return;
     }
+    currentPrompt = prompt;
+    selectedPromptSlug = slug;
+    renderEditor(prompt);
+    renderPromptsList(); // Обновить выделение в списке
+  } catch (error) {
+    console.error('Ошибка загрузки промпта:', error);
+    renderEditor(null);
   }
-  return null;
 }
 
-function getNodePath(nodes, targetId, path = []) {
-  for (const node of nodes) {
-    const currentPath = [...path, node];
-    if (node.id === targetId) return currentPath;
-    if (node.type === 'folder' && node.children) {
-      const found = getNodePath(node.children, targetId, currentPath);
-      if (found) return found;
-    }
-  }
-  return null;
-}
+// ---------- RENDERING ----------
 
-// ---------- РЕНДЕРИНГ ДЕРЕВА ----------
-
-function renderTree() {
+function renderPromptsList() {
   const container = document.getElementById('treeContainer');
   if (!container) return;
 
   container.innerHTML = '';
-  
-  if (rootNodes.length === 0) {
-    container.innerHTML = '<div style="padding: 16px; color: #888; text-align: center;">Дерево пусто. Создайте папку или заметку.</div>';
+
+  if (prompts.length === 0) {
+    container.innerHTML = '<div style="padding: 16px; color: #888; text-align: center;">Промпты не найдены. Создайте новый промпт.</div>';
+    updateFolderFilter();
     return;
   }
 
-  rootNodes.forEach(node => {
-    const element = renderTreeNode(node, 0);
+  prompts.forEach(prompt => {
+    const element = renderPromptItem(prompt);
     container.appendChild(element);
   });
+
+  updateFolderFilter();
 }
 
-function renderTreeNode(node, level) {
+function updateFolderFilter() {
+  const folderFilter = document.getElementById('folderFilter');
+  if (!folderFilter) return;
+
+  // Собираем уникальные папки
+  const folders = new Set();
+  prompts.forEach(prompt => {
+    if (prompt.folder) {
+      folders.add(prompt.folder);
+    }
+  });
+
+  const currentValue = folderFilter.value;
+  folderFilter.innerHTML = '<option value="">Все папки</option>';
+  
+  Array.from(folders).sort().forEach(folder => {
+    const option = document.createElement('option');
+    option.value = folder;
+    option.textContent = folder;
+    folderFilter.appendChild(option);
+  });
+
+  // Восстанавливаем выбранное значение
+  if (currentValue && folders.has(currentValue)) {
+    folderFilter.value = currentValue;
+  }
+}
+
+function renderPromptItem(prompt) {
   const div = document.createElement('div');
   div.className = 'tree-node';
-  div.dataset.nodeId = node.id;
-  
-  const isFolder = node.type === 'folder';
-  const isCollapsed = collapsedFolders.has(node.id);
-  const isSelected = selectedNodeId === node.id;
-  
-  const indent = level * 20;
-  
-  const toggleClass = isFolder ? (isCollapsed ? 'collapsed' : 'expanded') : 'hidden';
-  const icon = isFolder ? '📁' : '📄';
-  
+  div.dataset.slug = prompt.slug;
+
+  const isSelected = selectedPromptSlug === prompt.slug;
+
   const itemDiv = document.createElement('div');
-  itemDiv.className = `tree-node-item ${isSelected ? 'selected' : ''} ${dragOverNodeId === node.id ? 'drag-over' : ''}`;
+  itemDiv.className = `tree-node-item ${isSelected ? 'selected' : ''}`;
   itemDiv.setAttribute('data-action', 'select');
-  
-  // Делаем заметки и папки перетаскиваемыми
-  if (node.type === 'note' || node.type === 'folder') {
-    itemDiv.draggable = true;
-    itemDiv.dataset.draggable = 'true';
-  }
-  
-  const indentDiv = document.createElement('div');
-  indentDiv.className = 'tree-node-indent';
-  indentDiv.style.width = `${indent}px`;
-  
-  const toggleSpan = document.createElement('span');
-  toggleSpan.className = `tree-node-toggle ${toggleClass}`;
-  toggleSpan.setAttribute('data-action', 'toggle');
-  
+
   const iconSpan = document.createElement('span');
   iconSpan.className = 'tree-node-icon';
-  iconSpan.textContent = icon;
-  
+  iconSpan.textContent = '📄';
+
+  const contentDiv = document.createElement('div');
+  contentDiv.style.flex = '1';
+  contentDiv.style.minWidth = '0';
+
   const titleSpan = document.createElement('span');
   titleSpan.className = 'tree-node-title';
   titleSpan.setAttribute('data-action', 'select');
-  titleSpan.textContent = node.title;
-  
+  titleSpan.textContent = prompt.name || 'Без названия';
+  titleSpan.style.display = 'block';
+  titleSpan.style.marginBottom = '4px';
+
+  const metaDiv = document.createElement('div');
+  metaDiv.style.fontSize = '11px';
+  metaDiv.style.color = 'rgba(58, 42, 79, 0.6)';
+  metaDiv.style.display = 'flex';
+  metaDiv.style.gap = '8px';
+  metaDiv.style.flexWrap = 'wrap';
+
+  if (prompt.folder) {
+    const folderSpan = document.createElement('span');
+    folderSpan.textContent = `📁 ${prompt.folder}`;
+    metaDiv.appendChild(folderSpan);
+  }
+
+  if (prompt.tags) {
+    const tagsSpan = document.createElement('span');
+    tagsSpan.textContent = `🏷️ ${prompt.tags}`;
+    metaDiv.appendChild(tagsSpan);
+  }
+
+  contentDiv.appendChild(titleSpan);
+  contentDiv.appendChild(metaDiv);
+
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'tree-node-actions';
-  
-  const renameBtn = document.createElement('button');
-  renameBtn.className = 'tree-node-action';
-  renameBtn.setAttribute('data-action', 'rename');
-  renameBtn.setAttribute('title', 'Переименовать');
-  renameBtn.textContent = '✏️';
-  
+
+  const editBtn = document.createElement('button');
+  editBtn.className = 'tree-node-action';
+  editBtn.setAttribute('data-action', 'edit');
+  editBtn.setAttribute('title', 'Редактировать');
+  editBtn.textContent = '✏️';
+
   const deleteBtn = document.createElement('button');
-  deleteBtn.className = `tree-node-action ${isFolder ? 'delete' : ''}`;
+  deleteBtn.className = 'tree-node-action delete';
   deleteBtn.setAttribute('data-action', 'delete');
   deleteBtn.setAttribute('title', 'Удалить');
   deleteBtn.textContent = '🗑️';
-  
-  actionsDiv.appendChild(renameBtn);
+
+  actionsDiv.appendChild(editBtn);
   actionsDiv.appendChild(deleteBtn);
-  
-  if (isFolder) {
-    const newFolderBtn = document.createElement('button');
-    newFolderBtn.className = 'tree-node-action';
-    newFolderBtn.setAttribute('data-action', 'newFolder');
-    newFolderBtn.setAttribute('title', 'Создать папку');
-    newFolderBtn.textContent = '📁';
-    
-    const newNoteBtn = document.createElement('button');
-    newNoteBtn.className = 'tree-node-action';
-    newNoteBtn.setAttribute('data-action', 'newNote');
-    newNoteBtn.setAttribute('title', 'Создать заметку');
-    newNoteBtn.textContent = '📄';
-    
-    actionsDiv.appendChild(newFolderBtn);
-    actionsDiv.appendChild(newNoteBtn);
-  }
-  
-  itemDiv.appendChild(indentDiv);
-  itemDiv.appendChild(toggleSpan);
+
   itemDiv.appendChild(iconSpan);
-  itemDiv.appendChild(titleSpan);
+  itemDiv.appendChild(contentDiv);
   itemDiv.appendChild(actionsDiv);
-  
+
   div.appendChild(itemDiv);
-  
-  // Добавляем дочерние элементы
-  if (isFolder && !isCollapsed && node.children) {
-    node.children.forEach(child => {
-      const childElement = renderTreeNode(child, level + 1);
-      div.appendChild(childElement);
-    });
-  }
-  
+
   return div;
 }
 
-// ---------- ОБРАБОТЧИКИ СОБЫТИЙ ДЕРЕВА ----------
-
-function setupTreeEvents() {
-  const container = document.getElementById('treeContainer');
-  if (!container) return;
-  
-  // Обработка кликов
-  container.addEventListener('click', (e) => {
-    const item = e.target.closest('.tree-node-item');
-    if (!item) return;
-    
-    const nodeElement = item.closest('.tree-node');
-    if (!nodeElement) return;
-    
-    const nodeId = nodeElement.dataset.nodeId;
-    const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
-    
-    if (action === 'toggle') {
-      toggleFolder(nodeId);
-    } else if (action === 'select') {
-      selectNode(nodeId);
-    } else if (action === 'rename') {
-      e.stopPropagation();
-      renameNode(nodeId);
-    } else if (action === 'delete') {
-      e.stopPropagation();
-      deleteNode(nodeId);
-    } else if (action === 'newFolder') {
-      e.stopPropagation();
-      createNewFolder(nodeId);
-    } else if (action === 'newNote') {
-      e.stopPropagation();
-      createNewNote(nodeId);
-    }
-  });
-  
-  // Drag and Drop обработчики
-  container.addEventListener('dragstart', (e) => {
-    const item = e.target.closest('.tree-node-item');
-    if (!item || !item.draggable) return;
-    
-    const nodeElement = item.closest('.tree-node');
-    if (!nodeElement) return;
-    
-    draggedNodeId = nodeElement.dataset.nodeId;
-    item.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', draggedNodeId);
-  });
-  
-  container.addEventListener('dragend', (e) => {
-    const item = e.target.closest('.tree-node-item');
-    if (item) {
-      item.classList.remove('dragging');
-    }
-    draggedNodeId = null;
-    dragOverNodeId = null;
-    renderTree(); // Обновляем дерево, чтобы убрать визуальные эффекты
-  });
-  
-  container.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    
-    const nodeElement = e.target.closest('.tree-node');
-    if (!nodeElement) {
-      dragOverNodeId = null;
-      renderTree();
-      return;
-    }
-    
-    const nodeId = nodeElement.dataset.nodeId;
-    const node = findNodeById(rootNodes, nodeId);
-    
-    // Можно перетаскивать только в папки
-    if (node && node.type === 'folder' && nodeId !== draggedNodeId) {
-      // Проверяем, что не пытаемся переместить папку внутрь самой себя
-      if (draggedNodeId) {
-        const draggedNode = findNodeById(rootNodes, draggedNodeId);
-        if (draggedNode && draggedNode.type === 'folder') {
-          const targetPath = getNodePath(rootNodes, nodeId);
-          if (targetPath && targetPath.some(n => n.id === draggedNodeId)) {
-            dragOverNodeId = null;
-            renderTree();
-            return;
-          }
-        }
-      }
-      
-      if (dragOverNodeId !== nodeId) {
-        dragOverNodeId = nodeId;
-        renderTree();
-      }
-    } else {
-      if (dragOverNodeId !== null) {
-        dragOverNodeId = null;
-        renderTree();
-      }
-    }
-  });
-  
-  container.addEventListener('dragleave', (e) => {
-    // Проверяем, что мы действительно покинули контейнер
-    if (!container.contains(e.relatedTarget)) {
-      dragOverNodeId = null;
-      renderTree();
-    }
-  });
-  
-  container.addEventListener('drop', (e) => {
-    e.preventDefault();
-    
-    const nodeElement = e.target.closest('.tree-node');
-    if (!nodeElement || !draggedNodeId) return;
-    
-    const targetId = nodeElement.dataset.nodeId;
-    const targetNode = findNodeById(rootNodes, targetId);
-    
-    if (targetNode && targetNode.type === 'folder' && targetId !== draggedNodeId) {
-      moveNode(draggedNodeId, targetId);
-    }
-    
-    draggedNodeId = null;
-    dragOverNodeId = null;
-    renderTree();
-  });
-}
-
-function toggleFolder(folderId) {
-  if (collapsedFolders.has(folderId)) {
-    collapsedFolders.delete(folderId);
-  } else {
-    collapsedFolders.add(folderId);
-  }
-  renderTree();
-}
-
-function selectNode(nodeId) {
-  const node = findNodeById(rootNodes, nodeId);
-  if (!node) return;
-  
-  selectedNodeId = nodeId;
-  renderTree();
-  renderEditor(node);
-}
-
-// ---------- РЕНДЕРИНГ РЕДАКТОРА ----------
-
-function renderEditor(node) {
+function renderEditor(prompt) {
   const container = document.getElementById('editorContent');
   if (!container) return;
-  
-  if (!node || node.type === 'folder') {
+
+  if (!prompt) {
     container.innerHTML = `
       <div class="editor-placeholder">
-        <p>Выберите заметку слева для просмотра и редактирования</p>
+        <p>Выберите промпт слева для просмотра и редактирования</p>
       </div>
     `;
+    isEditMode = false;
     return;
   }
-  
-        container.innerHTML = `
+
+  if (isEditMode) {
+    renderEditForm(prompt);
+  } else {
+    renderViewMode(prompt);
+  }
+}
+
+function renderViewMode(prompt) {
+  const container = document.getElementById('editorContent');
+  container.innerHTML = `
     <div class="editor-header">
-      <input 
-        type="text" 
-        class="editor-title-input" 
-        id="noteTitleInput"
-        value="${escapeHtml(node.title)}"
-        placeholder="Название заметки"
-      />
+      <div style="flex: 1;">
+        <h2 style="font-size: 22px; font-weight: 600; margin: 0; color: var(--brandInk);">${escapeHtml(prompt.name || 'Без названия')}</h2>
+        <div style="display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: rgba(58, 42, 79, 0.6);">
+          ${prompt.folder ? `<span>📁 ${escapeHtml(prompt.folder)}</span>` : ''}
+          ${prompt.tags ? `<span>🏷️ ${escapeHtml(prompt.tags)}</span>` : ''}
+        </div>
+      </div>
       <div class="editor-actions">
-        <button class="btn btn-danger" id="deleteNoteBtn">Удалить</button>
+        <button class="btn" id="editPromptBtn">Редактировать</button>
+        <button class="btn btn-danger" id="deletePromptBtn">Удалить</button>
       </div>
     </div>
     <div class="editor-body">
-      <textarea 
-        class="editor-textarea" 
-        id="noteContentInput"
-        placeholder="Содержимое заметки..."
-      >${escapeHtml(node.content || '')}</textarea>
-          </div>
-        `;
-  
-  // Обработчики редактора
-  const titleInput = document.getElementById('noteTitleInput');
-  const contentInput = document.getElementById('noteContentInput');
-  const deleteBtn = document.getElementById('deleteNoteBtn');
-  
-  let saveTimeout = null;
-  
-  function saveNote() {
-    if (!node) return;
-    node.title = titleInput.value.trim() || 'Без названия';
-    node.content = contentInput.value;
-    saveToStorage();
-    renderTree(); // Обновить название в дереве
+      <div style="white-space: pre-wrap; line-height: 1.7; color: var(--brandInk);">${escapeHtml(prompt.text || '')}</div>
+    </div>
+  `;
+
+  const editBtn = document.getElementById('editPromptBtn');
+  const deleteBtn = document.getElementById('deletePromptBtn');
+
+  if (editBtn) {
+    editBtn.addEventListener('click', () => {
+      isEditMode = true;
+      renderEditForm(prompt);
+    });
   }
-  
-  titleInput.addEventListener('input', () => {
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(saveNote, 500);
-  });
-  
-  contentInput.addEventListener('input', () => {
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(saveNote, 500);
-  });
-  
+
   if (deleteBtn) {
-    deleteBtn.addEventListener('click', () => {
-      if (confirm('Удалить эту заметку?')) {
-        deleteNode(node.id);
+    deleteBtn.addEventListener('click', async () => {
+      if (confirm(`Удалить промпт "${prompt.name}"?`)) {
+        await handleDeletePrompt(prompt.slug);
       }
     });
   }
 }
 
-// ---------- CRUD ОПЕРАЦИИ ----------
+function renderEditForm(prompt = null) {
+  const isNew = !prompt;
+  const container = document.getElementById('editorContent');
+  container.innerHTML = `
+    <div class="editor-header">
+      <h2 style="font-size: 22px; font-weight: 600; margin: 0; color: var(--brandInk);">
+        ${isNew ? 'Создать промпт' : 'Редактировать промпт'}
+      </h2>
+      <div class="editor-actions">
+        <button class="btn" id="cancelEditBtn">Отмена</button>
+        <button class="btn" id="savePromptBtn">Сохранить</button>
+      </div>
+    </div>
+    <div class="editor-body">
+      <form id="promptForm" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
+        <div>
+          <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--brandInk);">Название *</label>
+          <input 
+            type="text" 
+            id="promptNameInput"
+            class="modal-input"
+            value="${prompt ? escapeHtml(prompt.name) : ''}"
+            placeholder="Название промпта"
+            required
+          />
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--brandInk);">Текст *</label>
+          <textarea 
+            id="promptTextInput"
+            class="editor-textarea"
+            placeholder="Текст промпта..."
+            required
+            style="min-height: 300px;"
+          >${prompt ? escapeHtml(prompt.text) : ''}</textarea>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--brandInk);">Папка</label>
+          <input 
+            type="text" 
+            id="promptFolderInput"
+            class="modal-input"
+            value="${prompt && prompt.folder ? escapeHtml(prompt.folder) : ''}"
+            placeholder="Название папки (необязательно)"
+          />
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--brandInk);">Теги</label>
+          <input 
+            type="text" 
+            id="promptTagsInput"
+            class="modal-input"
+            value="${prompt && prompt.tags ? escapeHtml(prompt.tags) : ''}"
+            placeholder="Теги через запятую (необязательно)"
+          />
+        </div>
+      </form>
+    </div>
+  `;
 
-function createNewFolder(parentFolderId = null) {
-  const title = prompt('Введите название папки:', 'Новая папка');
-  if (!title || !title.trim()) return;
-  
-  const newFolder = {
-    type: 'folder',
-    id: 'folder-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-    title: title.trim(),
-    children: []
-  };
-  
-  if (parentFolderId) {
-    const parent = findNodeById(rootNodes, parentFolderId);
-    if (parent && parent.type === 'folder') {
-      parent.children.push(newFolder);
-    }
-  } else {
-    rootNodes.push(newFolder);
+  const form = document.getElementById('promptForm');
+  const cancelBtn = document.getElementById('cancelEditBtn');
+  const saveBtn = document.getElementById('savePromptBtn');
+
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await handleSavePrompt(prompt?.slug);
+    });
   }
-  
-  saveToStorage();
-  renderTree();
-  selectNode(newFolder.id);
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      if (prompt) {
+        isEditMode = false;
+        renderViewMode(prompt);
+      } else {
+        renderEditor(null);
+      }
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      await handleSavePrompt(prompt?.slug);
+    });
+  }
 }
 
-function createNewNote(parentFolderId = null) {
-  const title = prompt('Введите название заметки:', 'Новая заметка');
-  if (!title || !title.trim()) return;
-  
-  const newNote = {
-    type: 'note',
-    id: 'note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-    title: title.trim(),
-    content: ''
-  };
-  
-  if (parentFolderId) {
-    const parent = findNodeById(rootNodes, parentFolderId);
-    if (parent && parent.type === 'folder') {
-      parent.children.push(newNote);
+// ---------- EVENT HANDLERS ----------
+
+function setupPromptsListEvents() {
+  const container = document.getElementById('treeContainer');
+  if (!container) return;
+
+  container.addEventListener('click', async (e) => {
+    const item = e.target.closest('.tree-node-item');
+    if (!item) return;
+
+    const nodeElement = item.closest('.tree-node');
+    if (!nodeElement) return;
+
+    const slug = nodeElement.dataset.slug;
+    const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
+
+    if (action === 'select') {
+      await loadPrompt(slug);
+    } else if (action === 'edit') {
+      e.stopPropagation();
+      const prompt = prompts.find(p => p.slug === slug);
+      if (prompt) {
+        isEditMode = true;
+        renderEditForm(prompt);
+      }
+    } else if (action === 'delete') {
+      e.stopPropagation();
+      const prompt = prompts.find(p => p.slug === slug);
+      if (prompt && confirm(`Удалить промпт "${prompt.name}"?`)) {
+        await handleDeletePrompt(slug);
+      }
     }
-  } else {
-    rootNodes.push(newNote);
-  }
-  
-  // Раскрыть родительскую папку
-  if (parentFolderId) {
-    collapsedFolders.delete(parentFolderId);
-  }
-  
-  saveToStorage();
-  renderTree();
-  selectNode(newNote.id);
+  });
 }
 
-function renameNode(nodeId) {
-  const node = findNodeById(rootNodes, nodeId);
-  if (!node) return;
-  
-  const newTitle = prompt('Введите новое название:', node.title);
-  if (!newTitle || !newTitle.trim()) return;
-  
-  node.title = newTitle.trim();
-  saveToStorage();
-  renderTree();
-  
-  // Если это выбранная заметка, обновить редактор
-  if (selectedNodeId === nodeId && node.type === 'note') {
-    const titleInput = document.getElementById('noteTitleInput');
-    if (titleInput) {
-      titleInput.value = node.title;
+async function handleSavePrompt(slug = null) {
+  const nameInput = document.getElementById('promptNameInput');
+  const textInput = document.getElementById('promptTextInput');
+  const folderInput = document.getElementById('promptFolderInput');
+  const tagsInput = document.getElementById('promptTagsInput');
+
+  if (!nameInput || !textInput) return;
+
+  const name = nameInput.value.trim();
+  const text = textInput.value.trim();
+  const folder = folderInput?.value.trim() || null;
+  const tags = tagsInput?.value.trim() || null;
+
+  if (!name || !text) {
+    alert('Название и текст обязательны для заполнения');
+    return;
+  }
+
+  try {
+    const data = {
+      name,
+      text,
+      folder: folder || null,
+      tags: tags || null,
+    };
+
+    let savedPrompt;
+    if (slug) {
+      // Обновление
+      savedPrompt = await updatePrompt(slug, data);
+      if (!savedPrompt) {
+        alert('Промпт не найден');
+        return;
+      }
+    } else {
+      // Создание
+      savedPrompt = await createPrompt(data);
     }
+
+    // Обновить список и переключиться в режим просмотра
+    await loadPrompts();
+    isEditMode = false;
+    await loadPrompt(savedPrompt.slug);
+  } catch (error) {
+    console.error('Ошибка сохранения промпта:', error);
+    alert('Ошибка сохранения промпта. Проверьте консоль для деталей.');
   }
 }
 
-function deleteNode(nodeId) {
-  const node = findNodeById(rootNodes, nodeId);
-  if (!node) return;
-  
-  const isFolder = node.type === 'folder';
-  const hasChildren = isFolder && node.children && node.children.length > 0;
-  
-  let confirmMessage = isFolder 
-    ? `Удалить папку "${node.title}"${hasChildren ? ' и все её содержимое' : ''}?`
-    : `Удалить заметку "${node.title}"?`;
-  
-  if (!confirm(confirmMessage)) return;
-  
-  // Удаляем из родителя или из корня
-  const parent = findParentNode(rootNodes, nodeId);
-  
-  if (parent) {
-    parent.children = parent.children.filter(n => n.id !== nodeId);
-  } else {
-    rootNodes = rootNodes.filter(n => n.id !== nodeId);
+async function handleDeletePrompt(slug) {
+  try {
+    const success = await deletePrompt(slug);
+    if (!success) {
+      alert('Промпт не найден');
+      return;
+    }
+
+    // Обновить список и очистить редактор
+    await loadPrompts();
+    if (selectedPromptSlug === slug) {
+      selectedPromptSlug = null;
+      currentPrompt = null;
+      renderEditor(null);
+    }
+  } catch (error) {
+    console.error('Ошибка удаления промпта:', error);
+    alert('Ошибка удаления промпта. Проверьте консоль для деталей.');
   }
-  
-  // Если удалили выбранный узел, очистить редактор
-  if (selectedNodeId === nodeId) {
-    selectedNodeId = null;
-    renderEditor(null);
-  }
-  
-  saveToStorage();
-  renderTree();
 }
 
-// ---------- DRAG AND DROP ----------
-
-function removeNodeFromTree(nodes, nodeId, parent = null) {
-  for (let i = 0; i < nodes.length; i++) {
-    if (nodes[i].id === nodeId) {
-      const node = nodes[i];
-      nodes.splice(i, 1);
-      return { node, parent };
-    }
-    if (nodes[i].type === 'folder' && nodes[i].children) {
-      const result = removeNodeFromTree(nodes[i].children, nodeId, nodes[i]);
-      if (result) return result;
-    }
-  }
-  return null;
-}
-
-function moveNode(draggedId, targetId) {
-  if (draggedId === targetId) return false;
-  
-  const draggedNode = findNodeById(rootNodes, draggedId);
-  if (!draggedNode) return false;
-  
-  // Проверяем, что не пытаемся переместить папку внутрь самой себя или её потомка
-  if (draggedNode.type === 'folder') {
-    const targetPath = getNodePath(rootNodes, targetId);
-    if (targetPath) {
-      const draggedInPath = targetPath.some(n => n.id === draggedId);
-      if (draggedInPath) return false; // Нельзя переместить папку внутрь самой себя
-    }
-  }
-  
-  const targetNode = findNodeById(rootNodes, targetId);
-  if (!targetNode) return false;
-  
-  // Можно перемещать только в папки
-  if (targetNode.type !== 'folder') return false;
-  
-  // Удаляем узел из текущего места
-  const removed = removeNodeFromTree(rootNodes, draggedId);
-  if (!removed) return false;
-  
-  // Добавляем в целевую папку
-  if (!targetNode.children) {
-    targetNode.children = [];
-  }
-  targetNode.children.push(removed.node);
-  
-  // Раскрываем целевую папку
-  collapsedFolders.delete(targetId);
-  
-  saveToStorage();
-  renderTree();
-  
-  // Выбираем перемещенный узел
-  selectNode(draggedId);
-  
-  return true;
-}
-
-// ---------- КНОПКИ В ХЕДЕРЕ ----------
+// ---------- HEADER BUTTONS ----------
 
 function setupHeaderButtons() {
-  const newFolderBtn = document.getElementById('newFolderBtn');
-  const newNoteBtn = document.getElementById('newNoteBtn');
-  
-  if (newFolderBtn) {
-    newFolderBtn.addEventListener('click', () => {
-      createNewFolder();
-    });
-  }
-  
-  if (newNoteBtn) {
-    newNoteBtn.addEventListener('click', () => {
-      createNewNote();
+  const newPromptBtn = document.getElementById('newPromptBtn');
+
+  if (newPromptBtn) {
+    newPromptBtn.addEventListener('click', () => {
+      isEditMode = true;
+      currentPrompt = null;
+      selectedPromptSlug = null;
+      renderEditForm(null);
+      renderPromptsList(); // Убрать выделение
     });
   }
 }
 
-// ---------- УТИЛИТЫ ----------
+// ---------- SEARCH AND FILTER ----------
+
+function setupSearch() {
+  const searchInput = document.getElementById('searchInput');
+  const folderFilter = document.getElementById('folderFilter');
+
+  if (searchInput) {
+    let searchTimeout = null;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        const search = e.target.value.trim() || null;
+        const folder = folderFilter?.value || null;
+        loadPrompts(folder, search);
+      }, 300);
+    });
+  }
+
+  if (folderFilter) {
+    folderFilter.addEventListener('change', (e) => {
+      const folder = e.target.value || null;
+      const search = searchInput?.value.trim() || null;
+      loadPrompts(folder, search);
+    });
+  }
+}
+
+// ---------- UTILITIES ----------
 
 function escapeHtml(text) {
   if (text == null) return '';
@@ -628,12 +556,13 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ---------- ИНИЦИАЛИЗАЦИЯ ----------
+// ---------- INITIALIZATION ----------
 
 function init() {
-  setupTreeEvents();
+  setupPromptsListEvents();
   setupHeaderButtons();
-  loadData();
+  setupSearch();
+  loadPrompts();
 }
 
 document.addEventListener('DOMContentLoaded', init);

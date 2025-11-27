@@ -3,22 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Obsidian-like Notes</title>
+  <title>autookk - Промпты</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app-container">
-    <!-- Левая панель: дерево -->
+    <!-- Левая панель: список промптов -->
     <aside class="sidebar glass">
       <div class="sidebar-header">
-        <h1>Заметки</h1>
+        <h1>Промпты</h1>
         <div class="sidebar-actions">
-          <button id="newFolderBtn" class="btn-icon" title="Создать папку">📁</button>
-          <button id="newNoteBtn" class="btn-icon" title="Создать заметку">📄</button>
+          <button id="newPromptBtn" class="btn-icon" title="Создать промпт">➕</button>
         </div>
       </div>
+      <div class="sidebar-filters" style="padding: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1);">
+        <input 
+          type="text" 
+          id="searchInput" 
+          class="modal-input" 
+          placeholder="Поиск по названию или тексту..."
+          style="margin-bottom: 8px; font-size: 13px;"
+        />
+        <select 
+          id="folderFilter" 
+          class="modal-input"
+          style="font-size: 13px;"
+        >
+          <option value="">Все папки</option>
+        </select>
+      </div>
       <div id="treeContainer" class="tree-container">
-        <!-- Дерево будет отрендерено здесь -->
+        <!-- Список промптов будет отрендерен здесь -->
       </div>
     </aside>
 
@@ -26,7 +41,7 @@
     <main class="editor glass">
       <div id="editorContent" class="editor-content">
         <div class="editor-placeholder">
-          <p>Выберите заметку слева для просмотра и редактирования</p>
+          <p>Выберите промпт слева для просмотра и редактирования</p>
         </div>
       </div>
     </main>
