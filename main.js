@@ -189,12 +189,16 @@ function renderPromptsList() {
 }
 
 function renderFolderTree(tree, container) {
-  // Сначала рендерим промпты без папки, если они есть
+  // Сначала рендерим группу "Без папки", если есть промпты без папки
   if (tree.prompts.length > 0) {
-    tree.prompts.forEach(prompt => {
-      const element = renderPromptItem(prompt);
-      container.appendChild(element);
-    });
+    const noFolderNode = {
+      name: 'Без папки',
+      fullPath: '__no_folder__',
+      children: {},
+      prompts: tree.prompts
+    };
+    const noFolderElement = renderFolderNode(noFolderNode, 0);
+    container.appendChild(noFolderElement);
   }
 
   // Затем рендерим папки
@@ -212,7 +216,7 @@ function renderFolderNode(node, level) {
   div.dataset.folderPath = node.fullPath;
 
   const isCollapsed = collapsedFolders.has(node.fullPath);
-  const indent = level * 20;
+  const indent = level * 18;
 
   const itemDiv = document.createElement('div');
   itemDiv.className = 'tree-node-item';
@@ -229,7 +233,8 @@ function renderFolderNode(node, level) {
 
   const iconSpan = document.createElement('span');
   iconSpan.className = 'tree-node-icon';
-  iconSpan.textContent = '📁';
+  // Для группы "Без папки" используем другую иконку
+  iconSpan.textContent = node.fullPath === '__no_folder__' ? '📂' : '📁';
   iconSpan.style.marginRight = '6px';
 
   const titleSpan = document.createElement('span');
@@ -245,18 +250,18 @@ function renderFolderNode(node, level) {
 
   // Рендерим дочерние элементы, если папка развернута
   if (!isCollapsed) {
-    // Сначала промпты в этой папке
-    node.prompts.forEach(prompt => {
-      const promptElement = renderPromptItem(prompt, level + 1);
-      div.appendChild(promptElement);
-    });
-
-    // Затем дочерние папки
+    // Сначала дочерние папки
     const childKeys = Object.keys(node.children).sort();
     childKeys.forEach(childPath => {
       const childNode = node.children[childPath];
       const childElement = renderFolderNode(childNode, level + 1);
       div.appendChild(childElement);
+    });
+
+    // Затем промпты в этой папке
+    node.prompts.forEach(prompt => {
+      const promptElement = renderPromptItem(prompt, level + 1);
+      div.appendChild(promptElement);
     });
   }
 
@@ -297,16 +302,16 @@ function renderPromptItem(prompt, level = 0) {
   div.dataset.slug = prompt.slug;
 
   const isSelected = selectedPromptSlug === prompt.slug;
-  const indent = level * 20;
+  const indent = level * 18;
 
   const itemDiv = document.createElement('div');
   itemDiv.className = `tree-node-item ${isSelected ? 'selected' : ''}`;
   itemDiv.setAttribute('data-action', 'select');
   itemDiv.style.paddingLeft = `${indent}px`;
 
-  // Пустой индент для выравнивания с папками
+  // Пустой индент для выравнивания с папками (место для стрелки)
   const indentSpan = document.createElement('span');
-  indentSpan.style.width = '20px';
+  indentSpan.style.width = '16px';
   indentSpan.style.display = 'inline-block';
   indentSpan.style.flexShrink = '0';
 
@@ -571,6 +576,10 @@ function toggleFolder(folderPath) {
     collapsedFolders.add(folderPath);
   }
   renderPromptsList();
+  // После перерисовки нужно восстановить выделение выбранного промпта
+  if (selectedPromptSlug) {
+    // Выделение восстановится автоматически в renderPromptItem
+  }
 }
 
 async function handleSavePrompt(slug = null) {
