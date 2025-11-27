@@ -216,7 +216,7 @@ function renderFolderNode(node, level) {
   div.dataset.folderPath = node.fullPath;
 
   const isCollapsed = collapsedFolders.has(node.fullPath);
-  const indent = level * 18;
+  const indent = level * 20;
 
   const itemDiv = document.createElement('div');
   itemDiv.className = 'tree-node-item';
@@ -260,7 +260,13 @@ function renderFolderNode(node, level) {
 
     // Затем промпты в этой папке
     node.prompts.forEach(prompt => {
-      const promptElement = renderPromptItem(prompt, level + 1);
+      const promptElement = renderPromptItem(prompt);
+      // Задаем отступ снаружи к внутреннему элементу itemDiv
+      const promptIndent = (level + 1) * 20;
+      const itemDiv = promptElement.querySelector('.tree-node-item');
+      if (itemDiv) {
+        itemDiv.style.paddingLeft = `${promptIndent}px`;
+      }
       div.appendChild(promptElement);
     });
   }
@@ -296,18 +302,16 @@ function updateFolderFilter() {
   }
 }
 
-function renderPromptItem(prompt, level = 0) {
+function renderPromptItem(prompt) {
   const div = document.createElement('div');
   div.className = 'tree-node';
   div.dataset.slug = prompt.slug;
 
   const isSelected = selectedPromptSlug === prompt.slug;
-  const indent = level * 18;
 
   const itemDiv = document.createElement('div');
   itemDiv.className = `tree-node-item ${isSelected ? 'selected' : ''}`;
   itemDiv.setAttribute('data-action', 'select');
-  itemDiv.style.paddingLeft = `${indent}px`;
 
   // Пустой индент для выравнивания с папками (место для стрелки)
   const indentSpan = document.createElement('span');
