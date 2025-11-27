@@ -6,6 +6,7 @@ let prompts = [];
 let selectedPromptSlug = null;
 let currentPrompt = null;
 let isEditMode = false;
+let collapsedFolders = new Set(); // Хранит пути свернутых папок
 
 // ---------- API FUNCTIONS ----------
 
@@ -124,6 +125,49 @@ async function loadPrompt(slug) {
   }
 }
 
+// ---------- TREE BUILDING ----------
+
+function buildFolderTree(promptsList) {
+  const tree = {
+    name: '',
+    children: {},
+    prompts: []
+  };
+
+  promptsList.forEach(prompt => {
+    if (!prompt.folder || prompt.folder.trim() === '') {
+      // Промпты без папки
+      tree.prompts.push(prompt);
+    } else {
+      // Разбиваем путь по разделителю " / "
+      const pathParts = prompt.folder.split(' / ').map(p => p.trim()).filter(p => p);
+      
+      let current = tree;
+      let currentPath = '';
+      
+      pathParts.forEach((part, index) => {
+        currentPath = currentPath ? `${currentPath} / ${part}` : part;
+        
+        if (!current.children[currentPath]) {
+          current.children[currentPath] = {
+            name: part,
+            fullPath: currentPath,
+            children: {},
+            prompts: []
+          };
+        }
+        
+        current = current.children[currentPath];
+      });
+      
+      // Добавляем промпт в конечную папку
+      current.prompts.push(prompt);
+    }
+  });
+
+  return tree;
+}
+
 // ---------- RENDERING ----------
 
 function renderPromptsList() {
@@ -138,12 +182,85 @@ function renderPromptsList() {
     return;
   }
 
-  prompts.forEach(prompt => {
-    const element = renderPromptItem(prompt);
-    container.appendChild(element);
-  });
+  const tree = buildFolderTree(prompts);
+  renderFolderTree(tree, container);
 
   updateFolderFilter();
+}
+
+function renderFolderTree(tree, container) {
+  // Сначала рендерим промпты без папки, если они есть
+  if (tree.prompts.length > 0) {
+    tree.prompts.forEach(prompt => {
+      const element = renderPromptItem(prompt);
+      container.appendChild(element);
+    });
+  }
+
+  // Затем рендерим папки
+  const folderKeys = Object.keys(tree.children).sort();
+  folderKeys.forEach(folderPath => {
+    const folderNode = tree.children[folderPath];
+    const element = renderFolderNode(folderNode, 0);
+    container.appendChild(element);
+  });
+}
+
+function renderFolderNode(node, level) {
+  const div = document.createElement('div');
+  div.className = 'tree-node';
+  div.dataset.folderPath = node.fullPath;
+
+  const isCollapsed = collapsedFolders.has(node.fullPath);
+  const indent = level * 20;
+
+  const itemDiv = document.createElement('div');
+  itemDiv.className = 'tree-node-item';
+  itemDiv.setAttribute('data-action', 'toggle-folder');
+  itemDiv.style.paddingLeft = `${indent}px`;
+
+  const toggleSpan = document.createElement('span');
+  toggleSpan.className = 'tree-node-toggle';
+  toggleSpan.style.marginRight = '4px';
+  toggleSpan.style.cursor = 'pointer';
+  toggleSpan.style.userSelect = 'none';
+  toggleSpan.textContent = isCollapsed ? '►' : '▼';
+  toggleSpan.setAttribute('data-action', 'toggle-folder');
+
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'tree-node-icon';
+  iconSpan.textContent = '📁';
+  iconSpan.style.marginRight = '6px';
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'tree-node-title';
+  titleSpan.textContent = node.name;
+  titleSpan.setAttribute('data-action', 'toggle-folder');
+
+  itemDiv.appendChild(toggleSpan);
+  itemDiv.appendChild(iconSpan);
+  itemDiv.appendChild(titleSpan);
+
+  div.appendChild(itemDiv);
+
+  // Рендерим дочерние элементы, если папка развернута
+  if (!isCollapsed) {
+    // Сначала промпты в этой папке
+    node.prompts.forEach(prompt => {
+      const promptElement = renderPromptItem(prompt, level + 1);
+      div.appendChild(promptElement);
+    });
+
+    // Затем дочерние папки
+    const childKeys = Object.keys(node.children).sort();
+    childKeys.forEach(childPath => {
+      const childNode = node.children[childPath];
+      const childElement = renderFolderNode(childNode, level + 1);
+      div.appendChild(childElement);
+    });
+  }
+
+  return div;
 }
 
 function updateFolderFilter() {
@@ -174,20 +291,29 @@ function updateFolderFilter() {
   }
 }
 
-function renderPromptItem(prompt) {
+function renderPromptItem(prompt, level = 0) {
   const div = document.createElement('div');
   div.className = 'tree-node';
   div.dataset.slug = prompt.slug;
 
   const isSelected = selectedPromptSlug === prompt.slug;
+  const indent = level * 20;
 
   const itemDiv = document.createElement('div');
   itemDiv.className = `tree-node-item ${isSelected ? 'selected' : ''}`;
   itemDiv.setAttribute('data-action', 'select');
+  itemDiv.style.paddingLeft = `${indent}px`;
+
+  // Пустой индент для выравнивания с папками
+  const indentSpan = document.createElement('span');
+  indentSpan.style.width = '20px';
+  indentSpan.style.display = 'inline-block';
+  indentSpan.style.flexShrink = '0';
 
   const iconSpan = document.createElement('span');
   iconSpan.className = 'tree-node-icon';
   iconSpan.textContent = '📄';
+  iconSpan.style.marginRight = '6px';
 
   const contentDiv = document.createElement('div');
   contentDiv.style.flex = '1';
@@ -206,12 +332,6 @@ function renderPromptItem(prompt) {
   metaDiv.style.display = 'flex';
   metaDiv.style.gap = '8px';
   metaDiv.style.flexWrap = 'wrap';
-
-  if (prompt.folder) {
-    const folderSpan = document.createElement('span');
-    folderSpan.textContent = `📁 ${prompt.folder}`;
-    metaDiv.appendChild(folderSpan);
-  }
 
   if (prompt.tags) {
     const tagsSpan = document.createElement('span');
@@ -240,6 +360,7 @@ function renderPromptItem(prompt) {
   actionsDiv.appendChild(editBtn);
   actionsDiv.appendChild(deleteBtn);
 
+  itemDiv.appendChild(indentSpan);
   itemDiv.appendChild(iconSpan);
   itemDiv.appendChild(contentDiv);
   itemDiv.appendChild(actionsDiv);
@@ -406,14 +527,23 @@ function setupPromptsListEvents() {
   if (!container) return;
 
   container.addEventListener('click', async (e) => {
-    const item = e.target.closest('.tree-node-item');
-    if (!item) return;
-
-    const nodeElement = item.closest('.tree-node');
+    const nodeElement = e.target.closest('.tree-node');
     if (!nodeElement) return;
 
-    const slug = nodeElement.dataset.slug;
     const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
+
+    // Обработка папок
+    if (nodeElement.dataset.folderPath) {
+      if (action === 'toggle-folder') {
+        const folderPath = nodeElement.dataset.folderPath;
+        toggleFolder(folderPath);
+      }
+      return;
+    }
+
+    // Обработка промптов
+    const slug = nodeElement.dataset.slug;
+    if (!slug) return;
 
     if (action === 'select') {
       await loadPrompt(slug);
@@ -432,6 +562,15 @@ function setupPromptsListEvents() {
       }
     }
   });
+}
+
+function toggleFolder(folderPath) {
+  if (collapsedFolders.has(folderPath)) {
+    collapsedFolders.delete(folderPath);
+  } else {
+    collapsedFolders.add(folderPath);
+  }
+  renderPromptsList();
 }
 
 async function handleSavePrompt(slug = null) {
