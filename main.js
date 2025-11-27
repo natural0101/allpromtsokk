@@ -182,7 +182,10 @@ function renderPromptsList() {
     return;
   }
 
+  // Строим дерево из промптов
   const tree = buildFolderTree(prompts);
+  
+  // Рендерим дерево
   renderFolderTree(tree, container);
 
   updateFolderFilter();
