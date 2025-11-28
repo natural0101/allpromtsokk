@@ -786,6 +786,17 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// ---------- VERSION ----------
+
+async function loadVersion() {
+  try {
+    const res = await fetch('/version.json');
+    const data = await res.json();
+    const el = document.getElementById('appVersion');
+    if (el) el.textContent = data.version;
+  } catch {}
+}
+
 // ---------- INITIALIZATION ----------
 
 function init() {
@@ -793,6 +804,7 @@ function init() {
   setupHeaderButtons();
   setupSearch();
   loadPrompts();
+  loadVersion();
 }
 
 document.addEventListener('DOMContentLoaded', init);
