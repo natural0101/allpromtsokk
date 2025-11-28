@@ -97,9 +97,20 @@ async function deletePrompt(slug) {
 
 // ---------- DATA LOADING ----------
 
-async function loadPrompts(folder = null, search = null) {
+async function loadPrompts(folder = null, search = null, tag = null) {
   try {
-    prompts = await fetchPrompts(folder, search);
+    let allPrompts = await fetchPrompts(folder, search);
+    
+    // Фильтрация по тегу
+    if (tag && tag.trim() !== '') {
+      allPrompts = allPrompts.filter(prompt => {
+        if (!prompt.tags) return false;
+        const tags = prompt.tags.split(',').map(t => t.trim()).filter(t => t);
+        return tags.includes(tag);
+      });
+    }
+    
+    prompts = allPrompts;
     renderPromptsList();
   } catch (error) {
     console.error('Ошибка загрузки промптов:', error);
@@ -202,6 +213,22 @@ function renderPromptsList() {
   renderFolderTree(tree, container);
 
   updateFolderFilter();
+  updateTagFilter();
+}
+
+function hasPromptsInNode(node) {
+  // Проверяем, есть ли промпты в этой папке
+  if (node.prompts && node.prompts.length > 0) {
+    return true;
+  }
+  // Проверяем дочерние папки
+  const childKeys = Object.keys(node.children || {});
+  for (const childPath of childKeys) {
+    if (hasPromptsInNode(node.children[childPath])) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function renderFolderTree(tree, container) {
@@ -217,12 +244,15 @@ function renderFolderTree(tree, container) {
     container.appendChild(noFolderElement);
   }
 
-  // Затем рендерим папки
+  // Затем рендерим папки (только те, где есть промпты)
   const folderKeys = Object.keys(tree.children).sort();
   folderKeys.forEach(folderPath => {
     const folderNode = tree.children[folderPath];
-    const element = renderFolderNode(folderNode, 0);
-    container.appendChild(element);
+    // Показываем папку только если в ней есть промпты
+    if (hasPromptsInNode(folderNode)) {
+      const element = renderFolderNode(folderNode, 0);
+      container.appendChild(element);
+    }
   });
 }
 
@@ -293,12 +323,15 @@ function renderFolderNode(node, level) {
   
   // Рендерим дочерние элементы, если папка развернута
   if (!isCollapsed) {
-    // Сначала дочерние папки
+    // Сначала дочерние папки (только те, где есть промпты)
     const childKeys = Object.keys(node.children).sort();
     childKeys.forEach(childPath => {
       const childNode = node.children[childPath];
-      const childElement = renderFolderNode(childNode, level + 1);
-      div.appendChild(childElement);
+      // Показываем дочернюю папку только если в ней есть промпты
+      if (hasPromptsInNode(childNode)) {
+        const childElement = renderFolderNode(childNode, level + 1);
+        div.appendChild(childElement);
+      }
     });
 
     // Затем промпты в этой папке
@@ -342,6 +375,44 @@ function updateFolderFilter() {
   // Восстанавливаем выбранное значение
   if (currentValue && folders.has(currentValue)) {
     folderFilter.value = currentValue;
+  }
+}
+
+async function updateTagFilter() {
+  const tagFilter = document.getElementById('tagFilter');
+  if (!tagFilter) return;
+  
+  // Загружаем все промпты для сбора всех уникальных тегов
+  let allPrompts = [];
+  try {
+    allPrompts = await fetchPrompts(null, null);
+  } catch (error) {
+    console.error('Ошибка загрузки промптов для тегов:', error);
+    return;
+  }
+  
+  // Собираем уникальные теги из всех промптов, разбивая по запятой
+  const tags = new Set();
+  allPrompts.forEach(prompt => {
+    if (prompt.tags) {
+      const promptTags = prompt.tags.split(',').map(t => t.trim()).filter(t => t);
+      promptTags.forEach(tag => tags.add(tag));
+    }
+  });
+    
+  const currentValue = tagFilter.value;
+  tagFilter.innerHTML = '<option value="">Все теги</option>';
+  
+  Array.from(tags).sort().forEach(tag => {
+    const option = document.createElement('option');
+    option.value = tag;
+    option.textContent = tag;
+    tagFilter.appendChild(option);
+  });
+
+  // Восстанавливаем выбранное значение
+  if (currentValue && tags.has(currentValue)) {
+    tagFilter.value = currentValue;
   }
 }
 
@@ -801,7 +872,10 @@ async function handleSavePrompt(slug = null) {
     originalFormData = null;
     
     // Обновить список и переключиться в режим просмотра
-    await loadPrompts();
+    const folder = document.getElementById('folderFilter')?.value || null;
+    const search = document.getElementById('searchInput')?.value.trim() || null;
+    const tag = document.getElementById('tagFilter')?.value || null;
+    await loadPrompts(folder, search, tag);
     isEditMode = false;
     await loadPrompt(savedPrompt.slug);
   } catch (error) {
@@ -819,7 +893,10 @@ async function handleDeletePrompt(slug) {
     }
 
     // Обновить список и очистить редактор
-    await loadPrompts();
+    const folder = document.getElementById('folderFilter')?.value || null;
+    const search = document.getElementById('searchInput')?.value.trim() || null;
+    const tag = document.getElementById('tagFilter')?.value || null;
+    await loadPrompts(folder, search, tag);
     if (selectedPromptSlug === slug) {
       selectedPromptSlug = null;
       currentPrompt = null;
@@ -852,7 +929,8 @@ async function handleDropPromptToFolder(slug, folderPath) {
     // После обновления перезагружаем список с теми же фильтрами/поиском
     await loadPrompts(
       document.getElementById('folderFilter')?.value || null,
-      document.getElementById('searchInput')?.value.trim() || null
+      document.getElementById('searchInput')?.value.trim() || null,
+      document.getElementById('tagFilter')?.value || null
     );
   } catch (e) {
     console.error('Ошибка DnD-обновления папки:', e);
@@ -888,6 +966,7 @@ function setupHeaderButtons() {
 function setupSearch() {
   const searchInput = document.getElementById('searchInput');
   const folderFilter = document.getElementById('folderFilter');
+  const tagFilter = document.getElementById('tagFilter');
   
   if (searchInput) {
     let searchTimeout = null;
@@ -896,7 +975,8 @@ function setupSearch() {
       searchTimeout = setTimeout(() => {
         const search = e.target.value.trim() || null;
         const folder = folderFilter?.value || null;
-        loadPrompts(folder, search);
+        const tag = tagFilter?.value || null;
+        loadPrompts(folder, search, tag);
       }, 300);
     });
   }
@@ -905,7 +985,17 @@ function setupSearch() {
     folderFilter.addEventListener('change', (e) => {
       const folder = e.target.value || null;
       const search = searchInput?.value.trim() || null;
-      loadPrompts(folder, search);
+      const tag = tagFilter?.value || null;
+      loadPrompts(folder, search, tag);
+    });
+  }
+  
+  if (tagFilter) {
+    tagFilter.addEventListener('change', (e) => {
+      const tag = e.target.value || null;
+      const folder = folderFilter?.value || null;
+      const search = searchInput?.value.trim() || null;
+      loadPrompts(folder, search, tag);
     });
   }
 }
