@@ -249,6 +249,33 @@ function renderFolderNode(node, level) {
   itemDiv.appendChild(iconSpan);
   itemDiv.appendChild(titleSpan);
 
+  // Drag & Drop handlers для папки
+  itemDiv.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    itemDiv.classList.add('drag-over');
+  });
+
+  itemDiv.addEventListener('dragleave', (e) => {
+    // Проверяем, что мы действительно покинули элемент (не перешли на дочерний)
+    const rect = itemDiv.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      itemDiv.classList.remove('drag-over');
+    }
+  });
+
+  itemDiv.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    itemDiv.classList.remove('drag-over');
+    
+    const slug = e.dataTransfer.getData('text/plain');
+    if (slug) {
+      await handleDropPromptToFolder(slug, node.fullPath);
+    }
+  });
+
   div.appendChild(itemDiv);
 
   // Рендерим дочерние элементы, если папка развернута
@@ -309,12 +336,16 @@ function renderPromptItem(prompt) {
   const div = document.createElement('div');
   div.className = 'tree-node';
   div.dataset.slug = prompt.slug;
+  // Внешний div не должен быть draggable
+  div.draggable = false;
 
   const isSelected = selectedPromptSlug === prompt.slug;
 
   const itemDiv = document.createElement('div');
   itemDiv.className = `tree-node-item ${isSelected ? 'selected' : ''}`;
   itemDiv.setAttribute('data-action', 'select');
+  // Только itemDiv должен быть draggable
+  itemDiv.draggable = true;
 
   // Пустой индент для выравнивания с папками (место для стрелки)
   const indentSpan = document.createElement('span');
@@ -378,6 +409,21 @@ function renderPromptItem(prompt) {
   itemDiv.appendChild(actionsDiv);
 
   div.appendChild(itemDiv);
+
+  // Drag & Drop handlers для промпта
+  itemDiv.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', prompt.slug);
+    e.dataTransfer.effectAllowed = 'move';
+    itemDiv.classList.add('dragging');
+  });
+
+  itemDiv.addEventListener('dragend', (e) => {
+    itemDiv.classList.remove('dragging');
+    // Убираем подсветку со всех папок
+    document.querySelectorAll('.tree-node-item.drag-over').forEach(el => {
+      el.classList.remove('drag-over');
+    });
+  });
 
   return div;
 }
@@ -656,6 +702,35 @@ async function handleDeletePrompt(slug) {
   } catch (error) {
     console.error('Ошибка удаления промпта:', error);
     alert('Ошибка удаления промпта. Проверьте консоль для деталей.');
+  }
+}
+
+async function handleDropPromptToFolder(slug, folderPath) {
+  const prompt = prompts.find(p => p.slug === slug);
+  if (!prompt) return;
+
+  const newFolder = folderPath === '__no_folder__' ? null : folderPath;
+
+  // Если папка не изменилась — ничего не делаем
+  if ((prompt.folder || null) === newFolder) return;
+
+  const data = {
+    name: prompt.name,
+    text: prompt.text,
+    folder: newFolder,
+    tags: prompt.tags || null,
+  };
+
+  try {
+    const updated = await updatePrompt(slug, data);
+    // После обновления перезагружаем список с теми же фильтрами/поиском
+    await loadPrompts(
+      document.getElementById('folderFilter')?.value || null,
+      document.getElementById('searchInput')?.value.trim() || null
+    );
+  } catch (e) {
+    console.error('Ошибка DnD-обновления папки:', e);
+    alert('Не удалось переместить промпт. Проверьте консоль.');
   }
 }
 
