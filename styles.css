@@ -535,3 +535,16 @@ body::before {
     padding: 16px;
   }
 }
+
+.app-version {
+  position: fixed;
+  right: 16px;
+  bottom: 12px;
+  font-size: 11px;
+  color: rgba(58, 42, 79, 0.6);
+  background: rgba(255, 255, 255, 0.55);
+  padding: 4px 10px;
+  border-radius: 6px;
+  z-index: 9999;
+  backdrop-filter: blur(6px);
+}
