@@ -857,11 +857,11 @@ async function handleSavePrompt(slug = null) {
   const tagsInput = document.getElementById('promptTagsInput');
 
   if (!nameInput || !textInput) return;
-  
+
   const name = nameInput.value.trim();
   const text = textInput.value.trim();
-  const folder = folderInput?.value.trim() || null;
-  const tags = tagsInput?.value.trim() || null;
+  const folderValue = folderInput?.value.trim() || null;
+  const tagsValue = tagsInput?.value.trim() || null;
 
   if (!name || !text) {
     alert('Название и текст обязательны для заполнения');
@@ -872,37 +872,25 @@ async function handleSavePrompt(slug = null) {
     const data = {
       name,
       text,
-      folder: folder || null,
-      tags: tags || null,
+      folder: folderValue,
+      tags: tagsValue,
     };
 
     let savedPrompt;
     if (slug) {
-      // Обновление
       savedPrompt = await updatePrompt(slug, data);
       if (!savedPrompt) {
         alert('Промпт не найден');
         return;
       }
-  } else {
-      // Создание
+    } else {
       savedPrompt = await createPrompt(data);
-  }
-  
-    // Сбрасываем флаг несохранённых изменений
+    }
+
     hasUnsavedChanges = false;
     originalFormData = null;
-    
-    // Обновляем стиль рамки textarea
-    if (textInput) {
-      textInput.style.borderColor = '';
-    }
-    
-    // Обновить список и переключиться в режим просмотра
-    const folder = document.getElementById('folderFilter')?.value || null;
-    const search = document.getElementById('searchInput')?.value.trim() || null;
-    const tag = document.getElementById('tagFilter')?.value || null;
-    await loadPrompts(folder, search, tag);
+
+    await loadPrompts();
     isEditMode = false;
     await loadPrompt(savedPrompt.slug);
   } catch (error) {
