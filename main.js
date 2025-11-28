@@ -7,6 +7,8 @@ let selectedPromptSlug = null;
 let currentPrompt = null;
 let isEditMode = false;
 let collapsedFolders = new Set(); // Хранит пути свернутых папок
+let hasUnsavedChanges = false; // Флаг несохранённых изменений
+let originalFormData = null; // Исходные данные формы для сравнения
 
 // ---------- API FUNCTIONS ----------
 
@@ -109,18 +111,29 @@ async function loadPrompts(folder = null, search = null) {
 }
 
 async function loadPrompt(slug) {
+  // Проверяем несохранённые изменения перед переключением
+  if (isEditMode && !confirmUnsavedChanges()) {
+    return;
+  }
+  
   try {
     const prompt = await fetchPromptBySlug(slug);
     if (!prompt) {
+      hasUnsavedChanges = false;
+      originalFormData = null;
       renderEditor(null);
       return;
     }
     currentPrompt = prompt;
     selectedPromptSlug = slug;
+    hasUnsavedChanges = false;
+    originalFormData = null;
     renderEditor(prompt);
     renderPromptsList(); // Обновить выделение в списке
   } catch (error) {
     console.error('Ошибка загрузки промпта:', error);
+    hasUnsavedChanges = false;
+    originalFormData = null;
     renderEditor(null);
   }
 }
@@ -475,6 +488,10 @@ function renderViewMode(prompt) {
 
   if (editBtn) {
     editBtn.addEventListener('click', () => {
+      // Проверяем несохранённые изменения перед переключением в режим редактирования
+      if (isEditMode && !confirmUnsavedChanges()) {
+        return;
+      }
       isEditMode = true;
       renderEditForm(prompt);
     });
@@ -489,9 +506,57 @@ function renderViewMode(prompt) {
   }
 }
 
+// Функция авто-увеличения высоты textarea
+function autoResizeTextarea(textarea) {
+  textarea.style.height = 'auto';
+  textarea.style.height = Math.max(300, textarea.scrollHeight) + 'px';
+}
+
+// Проверка наличия несохранённых изменений
+function checkFormChanges() {
+  const nameInput = document.getElementById('promptNameInput');
+  const textInput = document.getElementById('promptTextInput');
+  const folderInput = document.getElementById('promptFolderInput');
+  const tagsInput = document.getElementById('promptTagsInput');
+
+  if (!nameInput || !textInput || !originalFormData) return false;
+
+  const currentData = {
+    name: nameInput.value.trim(),
+    text: textInput.value.trim(),
+    folder: folderInput?.value.trim() || null,
+    tags: tagsInput?.value.trim() || null,
+  };
+
+  return (
+    currentData.name !== originalFormData.name ||
+    currentData.text !== originalFormData.text ||
+    currentData.folder !== originalFormData.folder ||
+    currentData.tags !== originalFormData.tags
+  );
+}
+
+// Показ предупреждения о несохранённых изменениях
+function confirmUnsavedChanges() {
+  if (hasUnsavedChanges && checkFormChanges()) {
+    return confirm('У вас есть несохранённые изменения. Вы уверены, что хотите закрыть редактор?');
+  }
+  return true;
+}
+
 function renderEditForm(prompt = null) {
   const isNew = !prompt;
   const container = document.getElementById('editorContent');
+  
+  // Сохраняем исходные данные для сравнения
+  originalFormData = {
+    name: prompt?.name || '',
+    text: prompt?.text || '',
+    folder: prompt?.folder || null,
+    tags: prompt?.tags || null,
+  };
+  hasUnsavedChanges = false;
+
   container.innerHTML = `
     <div class="editor-header">
       <h2 style="font-size: 22px; font-weight: 600; margin: 0; color: var(--brandInk);">
@@ -522,7 +587,7 @@ function renderEditForm(prompt = null) {
             class="editor-textarea"
             placeholder="Текст промпта..."
             required
-            style="min-height: 300px;"
+            style="min-height: 300px; resize: vertical; overflow-y: auto;"
           >${prompt ? escapeHtml(prompt.text) : ''}</textarea>
         </div>
         <div>
@@ -552,6 +617,50 @@ function renderEditForm(prompt = null) {
   const form = document.getElementById('promptForm');
   const cancelBtn = document.getElementById('cancelEditBtn');
   const saveBtn = document.getElementById('savePromptBtn');
+  const nameInput = document.getElementById('promptNameInput');
+  const textInput = document.getElementById('promptTextInput');
+  const folderInput = document.getElementById('promptFolderInput');
+  const tagsInput = document.getElementById('promptTagsInput');
+
+  // Авто-увеличение высоты textarea
+  if (textInput) {
+    // Инициализация высоты при загрузке
+    setTimeout(() => {
+      autoResizeTextarea(textInput);
+    }, 0);
+    
+    textInput.addEventListener('input', () => {
+      autoResizeTextarea(textInput);
+      hasUnsavedChanges = true;
+    });
+    
+    // Обработка вставки текста
+    textInput.addEventListener('paste', () => {
+      setTimeout(() => {
+        autoResizeTextarea(textInput);
+        hasUnsavedChanges = true;
+      }, 0);
+    });
+  }
+
+  // Отслеживание изменений в форме
+  if (nameInput) {
+    nameInput.addEventListener('input', () => {
+      hasUnsavedChanges = true;
+    });
+  }
+
+  if (folderInput) {
+    folderInput.addEventListener('input', () => {
+      hasUnsavedChanges = true;
+    });
+  }
+
+  if (tagsInput) {
+    tagsInput.addEventListener('input', () => {
+      hasUnsavedChanges = true;
+    });
+  }
 
   if (form) {
     form.addEventListener('submit', async (e) => {
@@ -562,6 +671,11 @@ function renderEditForm(prompt = null) {
 
   if (cancelBtn) {
     cancelBtn.addEventListener('click', () => {
+      if (!confirmUnsavedChanges()) return;
+      
+      hasUnsavedChanges = false;
+      originalFormData = null;
+      
       if (prompt) {
         isEditMode = false;
         renderViewMode(prompt);
@@ -604,9 +718,17 @@ function setupPromptsListEvents() {
     if (!slug) return;
 
     if (action === 'select') {
+      // Проверяем несохранённые изменения перед выбором другого промпта
+      if (isEditMode && !confirmUnsavedChanges()) {
+        return;
+      }
       await loadPrompt(slug);
     } else if (action === 'edit') {
       e.stopPropagation();
+      // Проверяем несохранённые изменения перед редактированием
+      if (isEditMode && !confirmUnsavedChanges()) {
+        return;
+      }
       const prompt = prompts.find(p => p.slug === slug);
       if (prompt) {
         isEditMode = true;
@@ -674,6 +796,10 @@ async function handleSavePrompt(slug = null) {
       savedPrompt = await createPrompt(data);
   }
   
+    // Сбрасываем флаг несохранённых изменений
+    hasUnsavedChanges = false;
+    originalFormData = null;
+    
     // Обновить список и переключиться в режим просмотра
     await loadPrompts();
     isEditMode = false;
@@ -741,6 +867,13 @@ function setupHeaderButtons() {
 
   if (newPromptBtn) {
     newPromptBtn.addEventListener('click', () => {
+      // Проверяем несохранённые изменения перед созданием нового промпта
+      if (isEditMode && !confirmUnsavedChanges()) {
+        return;
+      }
+      
+      hasUnsavedChanges = false;
+      originalFormData = null;
       isEditMode = true;
       currentPrompt = null;
       selectedPromptSlug = null;
