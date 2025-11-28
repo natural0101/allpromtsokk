@@ -54,8 +54,8 @@ async function createPrompt(data) {
   } catch (error) {
     console.error('Ошибка создания промпта:', error);
     throw error;
+    }
   }
-}
 
 async function updatePrompt(slug, data) {
   try {
@@ -104,7 +104,7 @@ async function loadPrompts(folder = null, search = null) {
     const container = document.getElementById('treeContainer');
     if (container) {
       container.innerHTML = '<div style="padding: 16px; color: #888; text-align: center;">Ошибка загрузки промптов. Проверьте подключение к серверу.</div>';
-    }
+}
   }
 }
 
@@ -175,7 +175,7 @@ function renderPromptsList() {
   if (!container) return;
 
   container.innerHTML = '';
-
+  
   if (prompts.length === 0) {
     container.innerHTML = '<div style="padding: 16px; color: #888; text-align: center;">Промпты не найдены. Создайте новый промпт.</div>';
     updateFolderFilter();
@@ -217,15 +217,15 @@ function renderFolderNode(node, level) {
   const div = document.createElement('div');
   div.className = 'tree-node';
   div.dataset.folderPath = node.fullPath;
-
+  
   const isCollapsed = collapsedFolders.has(node.fullPath);
   const indent = level * 20;
-
+  
   const itemDiv = document.createElement('div');
   itemDiv.className = 'tree-node-item';
   itemDiv.setAttribute('data-action', 'toggle-folder');
   itemDiv.style.paddingLeft = `${indent}px`;
-
+  
   const toggleSpan = document.createElement('span');
   toggleSpan.className = 'tree-node-toggle';
   toggleSpan.style.marginRight = '4px';
@@ -233,13 +233,13 @@ function renderFolderNode(node, level) {
   toggleSpan.style.userSelect = 'none';
   toggleSpan.textContent = isCollapsed ? '►' : '▼';
   toggleSpan.setAttribute('data-action', 'toggle-folder');
-
+  
   const iconSpan = document.createElement('span');
   iconSpan.className = 'tree-node-icon';
   // Для группы "Без папки" используем другую иконку
   iconSpan.textContent = node.fullPath === '__no_folder__' ? '📂' : '📁';
   iconSpan.style.marginRight = '6px';
-
+  
   const titleSpan = document.createElement('span');
   titleSpan.className = 'tree-node-title';
   titleSpan.textContent = node.name;
@@ -275,9 +275,9 @@ function renderFolderNode(node, level) {
       await handleDropPromptToFolder(slug, node.fullPath);
     }
   });
-
+  
   div.appendChild(itemDiv);
-
+  
   // Рендерим дочерние элементы, если папка развернута
   if (!isCollapsed) {
     // Сначала дочерние папки
@@ -300,14 +300,14 @@ function renderFolderNode(node, level) {
       div.appendChild(promptElement);
     });
   }
-
+  
   return div;
 }
 
 function updateFolderFilter() {
   const folderFilter = document.getElementById('folderFilter');
   if (!folderFilter) return;
-
+  
   // Собираем уникальные папки
   const folders = new Set();
   prompts.forEach(prompt => {
@@ -315,7 +315,7 @@ function updateFolderFilter() {
       folders.add(prompt.folder);
     }
   });
-
+    
   const currentValue = folderFilter.value;
   folderFilter.innerHTML = '<option value="">Все папки</option>';
   
@@ -352,7 +352,7 @@ function renderPromptItem(prompt) {
   indentSpan.style.width = '16px';
   indentSpan.style.display = 'inline-block';
   indentSpan.style.flexShrink = '0';
-
+    
   const iconSpan = document.createElement('span');
   iconSpan.className = 'tree-node-icon';
   iconSpan.textContent = '📄';
@@ -368,7 +368,7 @@ function renderPromptItem(prompt) {
   titleSpan.textContent = prompt.name || 'Без названия';
   titleSpan.style.display = 'block';
   titleSpan.style.marginBottom = '4px';
-
+    
   const metaDiv = document.createElement('div');
   metaDiv.style.fontSize = '11px';
   metaDiv.style.color = 'rgba(58, 42, 79, 0.6)';
@@ -431,7 +431,7 @@ function renderPromptItem(prompt) {
 function renderEditor(prompt) {
   const container = document.getElementById('editorContent');
   if (!container) return;
-
+  
   if (!prompt) {
     container.innerHTML = `
       <div class="editor-placeholder">
@@ -441,7 +441,7 @@ function renderEditor(prompt) {
     isEditMode = false;
     return;
   }
-
+  
   if (isEditMode) {
     renderEditForm(prompt);
   } else {
@@ -451,7 +451,7 @@ function renderEditor(prompt) {
 
 function renderViewMode(prompt) {
   const container = document.getElementById('editorContent');
-  container.innerHTML = `
+        container.innerHTML = `
     <div class="editor-header">
       <div style="flex: 1;">
         <h2 style="font-size: 22px; font-weight: 600; margin: 0; color: var(--brandInk);">${escapeHtml(prompt.name || 'Без названия')}</h2>
@@ -467,9 +467,9 @@ function renderViewMode(prompt) {
     </div>
     <div class="editor-body">
       <div style="white-space: pre-wrap; line-height: 1.7; color: var(--brandInk);">${escapeHtml(prompt.text || '')}</div>
-    </div>
-  `;
-
+          </div>
+        `;
+  
   const editBtn = document.getElementById('editPromptBtn');
   const deleteBtn = document.getElementById('deletePromptBtn');
 
@@ -479,7 +479,7 @@ function renderViewMode(prompt) {
       renderEditForm(prompt);
     });
   }
-
+  
   if (deleteBtn) {
     deleteBtn.addEventListener('click', async () => {
       if (confirm(`Удалить промпт "${prompt.name}"?`)) {
@@ -642,7 +642,7 @@ async function handleSavePrompt(slug = null) {
   const tagsInput = document.getElementById('promptTagsInput');
 
   if (!nameInput || !textInput) return;
-
+  
   const name = nameInput.value.trim();
   const text = textInput.value.trim();
   const folder = folderInput?.value.trim() || null;
@@ -669,11 +669,11 @@ async function handleSavePrompt(slug = null) {
         alert('Промпт не найден');
         return;
       }
-    } else {
+  } else {
       // Создание
       savedPrompt = await createPrompt(data);
-    }
-
+  }
+  
     // Обновить список и переключиться в режим просмотра
     await loadPrompts();
     isEditMode = false;
@@ -702,15 +702,15 @@ async function handleDeletePrompt(slug) {
   } catch (error) {
     console.error('Ошибка удаления промпта:', error);
     alert('Ошибка удаления промпта. Проверьте консоль для деталей.');
+    }
   }
-}
 
 async function handleDropPromptToFolder(slug, folderPath) {
   const prompt = prompts.find(p => p.slug === slug);
   if (!prompt) return;
-
+  
   const newFolder = folderPath === '__no_folder__' ? null : folderPath;
-
+  
   // Если папка не изменилась — ничего не делаем
   if ((prompt.folder || null) === newFolder) return;
 
@@ -755,7 +755,7 @@ function setupHeaderButtons() {
 function setupSearch() {
   const searchInput = document.getElementById('searchInput');
   const folderFilter = document.getElementById('folderFilter');
-
+  
   if (searchInput) {
     let searchTimeout = null;
     searchInput.addEventListener('input', (e) => {
@@ -767,7 +767,7 @@ function setupSearch() {
       }, 300);
     });
   }
-
+  
   if (folderFilter) {
     folderFilter.addEventListener('change', (e) => {
       const folder = e.target.value || null;
