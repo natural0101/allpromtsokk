@@ -658,7 +658,7 @@ function renderEditForm(prompt = null) {
             class="editor-textarea"
             placeholder="Текст промпта..."
             required
-            style="min-height: 300px; resize: vertical; overflow-y: auto;"
+            style="min-height: 300px; resize: vertical; overflow-y: auto; font-family: Consolas, Menlo, Monaco, monospace;"
           >${prompt ? escapeHtml(prompt.text) : ''}</textarea>
         </div>
         <div>
@@ -693,16 +693,29 @@ function renderEditForm(prompt = null) {
   const folderInput = document.getElementById('promptFolderInput');
   const tagsInput = document.getElementById('promptTagsInput');
 
+  // Функция для обновления стиля рамки textarea
+  function updateTextareaBorder() {
+    if (textInput) {
+      if (hasUnsavedChanges && checkFormChanges()) {
+        textInput.style.borderColor = '#7c3aed';
+      } else {
+        textInput.style.borderColor = '';
+      }
+    }
+  }
+
   // Авто-увеличение высоты textarea
   if (textInput) {
     // Инициализация высоты при загрузке
     setTimeout(() => {
       autoResizeTextarea(textInput);
+      updateTextareaBorder();
     }, 0);
     
     textInput.addEventListener('input', () => {
       autoResizeTextarea(textInput);
       hasUnsavedChanges = true;
+      updateTextareaBorder();
     });
     
     // Обработка вставки текста
@@ -710,6 +723,7 @@ function renderEditForm(prompt = null) {
       setTimeout(() => {
         autoResizeTextarea(textInput);
         hasUnsavedChanges = true;
+        updateTextareaBorder();
       }, 0);
     });
   }
@@ -718,18 +732,21 @@ function renderEditForm(prompt = null) {
   if (nameInput) {
     nameInput.addEventListener('input', () => {
       hasUnsavedChanges = true;
+      updateTextareaBorder();
     });
   }
 
   if (folderInput) {
     folderInput.addEventListener('input', () => {
       hasUnsavedChanges = true;
+      updateTextareaBorder();
     });
   }
 
   if (tagsInput) {
     tagsInput.addEventListener('input', () => {
       hasUnsavedChanges = true;
+      updateTextareaBorder();
     });
   }
 
@@ -746,6 +763,11 @@ function renderEditForm(prompt = null) {
       
       hasUnsavedChanges = false;
       originalFormData = null;
+      
+      // Обновляем стиль рамки textarea
+      if (textInput) {
+        textInput.style.borderColor = '';
+      }
       
       if (prompt) {
         isEditMode = false;
@@ -870,6 +892,11 @@ async function handleSavePrompt(slug = null) {
     // Сбрасываем флаг несохранённых изменений
     hasUnsavedChanges = false;
     originalFormData = null;
+    
+    // Обновляем стиль рамки textarea
+    if (textInput) {
+      textInput.style.borderColor = '';
+    }
     
     // Обновить список и переключиться в режим просмотра
     const folder = document.getElementById('folderFilter')?.value || null;
@@ -1026,8 +1053,39 @@ function init() {
   setupPromptsListEvents();
   setupHeaderButtons();
   setupSearch();
+  setupKeyboardShortcuts();
   loadPrompts();
   loadVersion();
+}
+
+// ---------- KEYBOARD SHORTCUTS ----------
+
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', async (e) => {
+    // Ctrl+S или Cmd+S - сохранить промпт
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      if (isEditMode) {
+        const textInput = document.getElementById('promptTextInput');
+        if (textInput) {
+          const slug = currentPrompt?.slug || null;
+          await handleSavePrompt(slug);
+        }
+      }
+    }
+    
+    // Esc - отмена редактирования
+    if (e.key === 'Escape') {
+      if (isEditMode) {
+        const cancelBtn = document.getElementById('cancelEditBtn');
+        if (cancelBtn) {
+          if (confirmUnsavedChanges()) {
+            cancelBtn.click();
+          }
+        }
+      }
+    }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);
