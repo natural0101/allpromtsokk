@@ -98,6 +98,66 @@ body::before {
   letter-spacing: -0.8px;
 }
 
+/* Экран логина */
+.login-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e1cffd 0%, #c5b3f0 30%, #b8d4f0 60%, #a8c5e8 100%);
+  z-index: 100000;
+}
+
+.login-container {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 24px;
+  padding: 48px;
+  min-width: 400px;
+  max-width: 90vw;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+  text-align: center;
+}
+
+.login-header {
+  margin-bottom: 32px;
+}
+
+.app-logo-login {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  font-size: 42px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 12px;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
+  letter-spacing: -0.8px;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: rgba(58, 42, 79, 0.7);
+  margin: 0;
+}
+
+#telegramLoginWidget {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.main-app {
+  display: none;
+}
+
 /* Левая панель */
 .sidebar {
   width: 320px;

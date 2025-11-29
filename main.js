@@ -9,6 +9,7 @@ let isEditMode = false;
 let collapsedFolders = new Set(); // Хранит пути свернутых папок
 let hasUnsavedChanges = false; // Флаг несохранённых изменений
 let originalFormData = null; // Исходные данные формы для сравнения
+let isAuthenticated = false; // Флаг авторизации
 
 // ---------- API FUNCTIONS ----------
 
@@ -19,8 +20,16 @@ async function fetchPrompts(folder = null, search = null) {
     if (search) params.append('search', search);
     
     const url = `${API_BASE}/prompts${params.toString() ? '?' + params.toString() : ''}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const response = await fetch(url, {
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        showLoginScreen();
+        throw new Error('Unauthorized');
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return await response.json();
   } catch (error) {
     console.error('Ошибка загрузки промптов:', error);
@@ -30,8 +39,14 @@ async function fetchPrompts(folder = null, search = null) {
 
 async function fetchPromptBySlug(slug) {
   try {
-    const response = await fetch(`${API_BASE}/prompts/${slug}`);
+    const response = await fetch(`${API_BASE}/prompts/${slug}`, {
+      credentials: 'include',
+    });
     if (!response.ok) {
+      if (response.status === 401) {
+        showLoginScreen();
+        return null;
+      }
       if (response.status === 404) return null;
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -49,9 +64,16 @@ async function createPrompt(data) {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      if (response.status === 401) {
+        showLoginScreen();
+        throw new Error('Unauthorized');
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return await response.json();
   } catch (error) {
     console.error('Ошибка создания промпта:', error);
@@ -66,9 +88,14 @@ async function updatePrompt(slug, data) {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!response.ok) {
+      if (response.status === 401) {
+        showLoginScreen();
+        return null;
+      }
       if (response.status === 404) return null;
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -83,8 +110,13 @@ async function deletePrompt(slug) {
   try {
     const response = await fetch(`${API_BASE}/prompts/${slug}`, {
       method: 'DELETE',
+      credentials: 'include',
     });
     if (!response.ok) {
+      if (response.status === 401) {
+        showLoginScreen();
+        return false;
+      }
       if (response.status === 404) return false;
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -1166,6 +1198,7 @@ async function handleDropPromptToFolder(slug, folderPath) {
 
 function setupHeaderButtons() {
   const newPromptBtn = document.getElementById('newPromptBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
 
   if (newPromptBtn) {
     newPromptBtn.addEventListener('click', () => {
@@ -1181,6 +1214,14 @@ function setupHeaderButtons() {
       selectedPromptSlug = null;
       renderEditForm(null);
       renderPromptsList(); // Убрать выделение
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      if (confirm('Вы уверены, что хотите выйти?')) {
+        await handleLogout();
+      }
     });
   }
 }
@@ -1485,6 +1526,105 @@ async function loadVersion() {
   } catch {}
 }
 
+// ---------- AUTH FUNCTIONS ----------
+
+async function checkAuth() {
+  try {
+    const response = await fetch(`${API_BASE}/prompts?limit=1`, {
+      credentials: 'include',
+    });
+    if (response.ok) {
+      isAuthenticated = true;
+      showMainApp();
+      return true;
+    } else if (response.status === 401) {
+      isAuthenticated = false;
+      showLoginScreen();
+      return false;
+    }
+    return false;
+  } catch (error) {
+    console.error('Ошибка проверки авторизации:', error);
+    showLoginScreen();
+    return false;
+  }
+}
+
+function showLoginScreen() {
+  const loginScreen = document.getElementById('loginScreen');
+  const mainApp = document.getElementById('mainApp');
+  if (loginScreen) loginScreen.style.display = 'flex';
+  if (mainApp) mainApp.style.display = 'none';
+  isAuthenticated = false;
+}
+
+function showMainApp() {
+  const loginScreen = document.getElementById('loginScreen');
+  const mainApp = document.getElementById('mainApp');
+  if (loginScreen) loginScreen.style.display = 'none';
+  if (mainApp) mainApp.style.display = 'block';
+  isAuthenticated = true;
+}
+
+async function handleTelegramAuth(user) {
+  try {
+    const response = await fetch(`${API_BASE}/auth/telegram`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        id: user.id,
+        username: user.username || null,
+        first_name: user.first_name || null,
+        last_name: user.last_name || null,
+        auth_date: user.auth_date,
+        hash: user.hash,
+      }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      alert(`Ошибка авторизации: ${error.detail || 'Неизвестная ошибка'}`);
+      return;
+    }
+    
+    const userData = await response.json();
+    console.log('Авторизация успешна:', userData);
+    showMainApp();
+    await loadPrompts();
+  } catch (error) {
+    console.error('Ошибка авторизации:', error);
+    alert('Ошибка авторизации. Попробуйте снова.');
+  }
+}
+
+async function handleLogout() {
+  try {
+    const response = await fetch(`${API_BASE}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    
+    if (response.ok) {
+      showLoginScreen();
+      prompts = [];
+      selectedPromptSlug = null;
+      currentPrompt = null;
+      renderPromptsList();
+      renderEditor(null);
+    }
+  } catch (error) {
+    console.error('Ошибка выхода:', error);
+    // Всё равно показываем экран логина
+    showLoginScreen();
+  }
+}
+
+// Глобальная функция для Telegram Widget
+window.onTelegramAuth = handleTelegramAuth;
+
 // ---------- INITIALIZATION ----------
 
 function init() {
@@ -1492,7 +1632,11 @@ function init() {
   setupHeaderButtons();
   setupSearch();
   setupKeyboardShortcuts();
-  loadPrompts();
+  checkAuth().then((authenticated) => {
+    if (authenticated) {
+      loadPrompts();
+    }
+  });
   loadVersion();
 }
 

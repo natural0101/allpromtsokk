@@ -7,14 +7,30 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-logo">autokk</div>
-  <div class="app-container">
+  <!-- Экран логина -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-container glass">
+      <div class="login-header">
+        <h1 class="app-logo-login">autokk</h1>
+        <p class="login-subtitle">Войдите через Telegram для доступа к промптам</p>
+      </div>
+      <div id="telegramLoginWidget">
+        <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="autookk_bot" data-size="large" data-onauth="onTelegramAuth(user)" data-request-access="write"></script>
+      </div>
+    </div>
+  </div>
+
+  <!-- Основной интерфейс -->
+  <div id="mainApp" class="main-app" style="display: none;">
+    <div class="app-logo">autokk</div>
+    <div class="app-container">
     <!-- Левая панель: список промптов -->
     <aside class="sidebar glass">
       <div class="sidebar-header">
         <h1>Промпты</h1>
         <div class="sidebar-actions">
           <button id="newPromptBtn" class="btn-icon" title="Создать промпт">➕</button>
+          <button id="logoutBtn" class="btn-icon" title="Выйти">🚪</button>
         </div>
       </div>
       <div class="sidebar-filters" style="padding: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1);">
@@ -55,8 +71,9 @@
     </main>
   </div>
 
-  <div class="app-version">
-    v<span id="appVersion"></span>
+    <div class="app-version">
+      v<span id="appVersion"></span>
+    </div>
   </div>
 
   <script src="main.js"></script>

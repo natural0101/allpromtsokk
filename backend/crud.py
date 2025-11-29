@@ -51,6 +51,7 @@ def create_prompt(db: Session, data: PromptCreate) -> Prompt:
         text=data.text,
         folder=data.folder,
         tags=data.tags,
+        importance=data.importance or "normal",
     )
     db.add(db_prompt)
     db.commit()
