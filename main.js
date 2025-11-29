@@ -1542,10 +1542,9 @@ async function loadVersion() {
 
 async function checkAuth() {
   try {
-    // Проверяем авторизацию через запрос к API
-    // GET /api/prompts доступен без авторизации, но мы можем проверить через другой эндпоинт
-    // Или просто пробуем загрузить промпты - если есть cookie, они загрузятся
-    const response = await fetch(`${API_BASE}/prompts?limit=1`, {
+    // Проверяем авторизацию через эндпоинт /api/auth/me
+    // Он требует авторизацию и возвращает данные пользователя
+    const response = await fetch(`${API_BASE}/auth/me`, {
       credentials: 'include',
     });
     if (response.ok) {
@@ -1557,10 +1556,10 @@ async function checkAuth() {
       showLoginScreen();
       return false;
     }
-    // Если не 401, считаем что авторизованы (GET доступен всем)
-    isAuthenticated = true;
-    showMainApp();
-    return true;
+    // Если не 401 и не 200, считаем что не авторизованы
+    isAuthenticated = false;
+    showLoginScreen();
+    return false;
   } catch (error) {
     console.error('Ошибка проверки авторизации:', error);
     showLoginScreen();
@@ -1626,23 +1625,30 @@ async function handleLogout() {
       credentials: 'include',
     });
     
-    if (response.ok) {
-      // После успешного выхода перезагружаем страницу
-      // Это гарантирует, что старые данные не останутся в памяти
+    // После выхода сбрасываем состояние и показываем экран логина
+    isAuthenticated = false;
+    prompts = [];
+    selectedPromptSlug = null;
+    currentPrompt = null;
+    renderPromptsList();
+    renderEditor(null);
+    showLoginScreen();
+    
+    // Перезагружаем страницу, чтобы очистить все состояния
+    // Cookie уже удалена на бэкенде, так что при перезагрузке пользователь будет гостем
+    setTimeout(() => {
       location.reload();
-    } else {
-      // Даже если запрос не удался, перезагружаем страницу
-      location.reload();
-    }
+    }, 100);
   } catch (error) {
     console.error('Ошибка выхода:', error);
-    // В случае ошибки всё равно перезагружаем страницу
-    location.reload();
+    // В случае ошибки всё равно сбрасываем состояние и перезагружаем
+    isAuthenticated = false;
+    showLoginScreen();
+    setTimeout(() => {
+      location.reload();
+    }, 100);
   }
 }
-
-// Глобальная функция для Telegram Widget
-window.onTelegramAuth = handleTelegramAuth;
 
 // ---------- INITIALIZATION ----------
 
@@ -1651,12 +1657,42 @@ function init() {
   setupHeaderButtons();
   setupSearch();
   setupKeyboardShortcuts();
+  setupTelegramLogin();
+  
+  // Проверяем авторизацию при загрузке страницы
   checkAuth().then((authenticated) => {
     if (authenticated) {
       loadPrompts();
     }
   });
   loadVersion();
+}
+
+// Настройка кнопки входа через Telegram
+function setupTelegramLogin() {
+  const loginBtn = document.getElementById('loginTelegramBtn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      // Создаём и загружаем Telegram Widget только по клику
+      const widgetContainer = document.getElementById('telegramLoginWidget');
+      if (widgetContainer && !widgetContainer.querySelector('script[data-telegram-login]')) {
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://telegram.org/js/telegram-widget.js?22';
+        script.setAttribute('data-telegram-login', 'autookk_bot');
+        script.setAttribute('data-size', 'large');
+        script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+        script.setAttribute('data-request-access', 'write');
+        
+        // Очищаем контейнер и добавляем скрипт
+        widgetContainer.innerHTML = '';
+        widgetContainer.appendChild(script);
+        
+        // Устанавливаем глобальную функцию для обработки авторизации
+        window.onTelegramAuth = handleTelegramAuth;
+      }
+    });
+  }
 }
 
 // ---------- KEYBOARD SHORTCUTS ----------
