@@ -11,7 +11,7 @@ from ..auth_crud import (
     update_user_login_time,
 )
 from ..db import get_db
-from ..schemas import TelegramAuthData
+from ..schemas import TelegramAuthData, UserOut
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -36,13 +36,23 @@ def telegram_login(
             first_name=payload.first_name,
             last_name=payload.last_name,
         )
+    else:
+        # Обновляем данные пользователя, если изменились
+        if payload.username and payload.username != user.username:
+            user.username = payload.username
+        if payload.first_name and payload.first_name != user.first_name:
+            user.first_name = payload.first_name
+        if payload.last_name and payload.last_name != user.last_name:
+            user.last_name = payload.last_name
+        db.commit()
+        db.refresh(user)
     
     user = update_user_login_time(db, user)
     session = create_session(db, user_id=user.id)
     
-    # Устанавливаем cookie с токеном
+    # Устанавливаем cookie с токеном (используем session_token для единообразия)
     response.set_cookie(
-        key="session_id",
+        key="session_token",
         value=session.token,
         httponly=True,
         secure=True,
@@ -51,7 +61,14 @@ def telegram_login(
         path="/",
     )
     
-    return {"token": session.token}
+    return {
+        "token": session.token,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "role": user.role,
+        }
+    }
 
 
 @router.post("/logout")
@@ -63,21 +80,14 @@ def logout(
     """
     Выход из системы. Отзывает текущую сессию и удаляет cookie.
     """
-    # Получаем токен из cookie или заголовка
-    session_token = request.cookies.get("session_id")
-    
-    if not session_token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            session_token = auth_header[7:]
-        else:
-            session_token = request.headers.get("X-Session-Token")
+    # Получаем токен из cookie
+    session_token = request.cookies.get("session_token")
     
     if session_token:
         revoke_session(db, session_token)
     
     # Удаляем cookie
-    response.delete_cookie(key="session_id", path="/")
+    response.delete_cookie(key="session_token", path="/")
     
-    return {"message": "Logged out successfully"}
+    return {"detail": "ok"}
 

@@ -12,7 +12,7 @@ from .db import SessionLocal
 class AuthMiddleware(BaseHTTPMiddleware):
     """
     Middleware для проверки авторизации.
-    Извлекает session_id из cookie, проверяет сессию и добавляет user в request.state.
+    Извлекает session_token из cookie, проверяет сессию и добавляет user в request.state.
     """
     
     # Роуты, которые не требуют авторизации
@@ -43,20 +43,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if is_public or is_public_get_prompts:
             return await call_next(request)
         
-        # Извлекаем токен из cookie или заголовка
-        session_token = request.cookies.get("session_id")
-        
-        # Если нет в cookie, проверяем заголовок Authorization или X-Session-Token
-        if not session_token:
-            auth_header = request.headers.get("Authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                session_token = auth_header[7:]  # Убираем "Bearer "
-            else:
-                session_token = request.headers.get("X-Session-Token")
+        # Извлекаем токен из cookie
+        session_token = request.cookies.get("session_token")
         
         if not session_token:
             return Response(
-                content='{"detail":"Unauthorized"}',
+                content='{"detail":"Not authenticated"}',
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 media_type="application/json"
             )

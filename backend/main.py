@@ -43,9 +43,21 @@ def get_current_user(request: Request) -> User:
     if not hasattr(request.state, "user") or request.state.user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized"
+            detail="Not authenticated"
         )
     return request.state.user
+
+
+def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Dependency для проверки, что пользователь является администратором.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return current_user
 
 
 @app.get("/api/prompts", response_model=List[PromptOut])
@@ -72,7 +84,7 @@ def get_prompt(
 def create_prompt(
     payload: PromptCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    admin_user: User = Depends(get_admin_user),
 ):
     prompt = crud.create_prompt(db=db, data=payload)
     return prompt
@@ -83,7 +95,7 @@ def update_prompt(
     slug: str,
     payload: PromptUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    admin_user: User = Depends(get_admin_user),
 ):
     prompt = crud.update_prompt(db=db, slug=slug, data=payload)
     if not prompt:
@@ -95,7 +107,7 @@ def update_prompt(
 def delete_prompt(
     slug: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    admin_user: User = Depends(get_admin_user),
 ):
     deleted = crud.delete_prompt(db=db, slug=slug)
     if not deleted:

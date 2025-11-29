@@ -13,21 +13,6 @@ let isAuthenticated = false; // Флаг авторизации
 
 // ---------- API FUNCTIONS ----------
 
-// Функция для получения заголовков с токеном
-function getAuthHeaders() {
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-  
-  // Пробуем получить токен из localStorage (на случай проблем с cookie)
-  const token = localStorage.getItem('session_token');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  return headers;
-}
-
 async function fetchPrompts(folder = null, search = null) {
   try {
     const params = new URLSearchParams();
@@ -37,11 +22,9 @@ async function fetchPrompts(folder = null, search = null) {
     const url = `${API_BASE}/prompts${params.toString() ? '?' + params.toString() : ''}`;
     const response = await fetch(url, {
       credentials: 'include',
-      headers: getAuthHeaders(),
     });
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem('session_token');
         showLoginScreen();
         throw new Error('Unauthorized');
       }
@@ -58,11 +41,9 @@ async function fetchPromptBySlug(slug) {
   try {
     const response = await fetch(`${API_BASE}/prompts/${slug}`, {
       credentials: 'include',
-      headers: getAuthHeaders(),
     });
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem('session_token');
         showLoginScreen();
         return null;
       }
@@ -80,15 +61,20 @@ async function createPrompt(data) {
   try {
     const response = await fetch(`${API_BASE}/prompts`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json',
+      },
       credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem('session_token');
         showLoginScreen();
         throw new Error('Unauthorized');
+      }
+      if (response.status === 403) {
+        alert('Доступ запрещён. Только администраторы могут создавать промпты.');
+        throw new Error('Forbidden');
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -103,14 +89,19 @@ async function updatePrompt(slug, data) {
   try {
     const response = await fetch(`${API_BASE}/prompts/${slug}`, {
       method: 'PUT',
-      headers: getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json',
+      },
       credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem('session_token');
         showLoginScreen();
+        return null;
+      }
+      if (response.status === 403) {
+        alert('Доступ запрещён. Только администраторы могут редактировать промпты.');
         return null;
       }
       if (response.status === 404) return null;
@@ -128,12 +119,14 @@ async function deletePrompt(slug) {
     const response = await fetch(`${API_BASE}/prompts/${slug}`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: getAuthHeaders(),
     });
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem('session_token');
         showLoginScreen();
+        return false;
+      }
+      if (response.status === 403) {
+        alert('Доступ запрещён. Только администраторы могут удалять промпты.');
         return false;
       }
       if (response.status === 404) return false;
@@ -1549,21 +1542,25 @@ async function loadVersion() {
 
 async function checkAuth() {
   try {
+    // Проверяем авторизацию через запрос к API
+    // GET /api/prompts доступен без авторизации, но мы можем проверить через другой эндпоинт
+    // Или просто пробуем загрузить промпты - если есть cookie, они загрузятся
     const response = await fetch(`${API_BASE}/prompts?limit=1`, {
       credentials: 'include',
-      headers: getAuthHeaders(),
     });
     if (response.ok) {
       isAuthenticated = true;
       showMainApp();
       return true;
     } else if (response.status === 401) {
-      localStorage.removeItem('session_token');
       isAuthenticated = false;
       showLoginScreen();
       return false;
     }
-    return false;
+    // Если не 401, считаем что авторизованы (GET доступен всем)
+    isAuthenticated = true;
+    showMainApp();
+    return true;
   } catch (error) {
     console.error('Ошибка проверки авторизации:', error);
     showLoginScreen();
@@ -1612,11 +1609,8 @@ async function handleTelegramAuth(user) {
     const authData = await response.json();
     console.log('Авторизация успешна:', authData);
     
-    // Сохраняем токен в localStorage на случай проблем с cookie
-    if (authData.token) {
-      localStorage.setItem('session_token', authData.token);
-    }
-    
+    // Токен теперь в cookie (HttpOnly), не нужно сохранять в localStorage
+    // Показываем основной интерфейс
     showMainApp();
     await loadPrompts();
   } catch (error) {
@@ -1630,25 +1624,20 @@ async function handleLogout() {
     const response = await fetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
       credentials: 'include',
-      headers: getAuthHeaders(),
     });
     
-    // Удаляем токен из localStorage
-    localStorage.removeItem('session_token');
-    
     if (response.ok) {
-      showLoginScreen();
-      prompts = [];
-      selectedPromptSlug = null;
-      currentPrompt = null;
-      renderPromptsList();
-      renderEditor(null);
+      // После успешного выхода перезагружаем страницу
+      // Это гарантирует, что старые данные не останутся в памяти
+      location.reload();
+    } else {
+      // Даже если запрос не удался, перезагружаем страницу
+      location.reload();
     }
   } catch (error) {
     console.error('Ошибка выхода:', error);
-    // Всё равно очищаем токен и показываем экран логина
-    localStorage.removeItem('session_token');
-    showLoginScreen();
+    // В случае ошибки всё равно перезагружаем страницу
+    location.reload();
   }
 }
 
