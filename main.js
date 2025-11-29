@@ -28,6 +28,14 @@ async function fetchPrompts(folder = null, search = null) {
         showLoginScreen();
         throw new Error('Unauthorized');
       }
+      if (response.status === 403) {
+        const reason = response.headers.get('X-Reason');
+        if (reason === 'status_not_active') {
+          showPendingScreen();
+          throw new Error('Access denied: status not active');
+        }
+        throw new Error('Forbidden');
+      }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     return await response.json();
@@ -45,6 +53,13 @@ async function fetchPromptBySlug(slug) {
     if (!response.ok) {
       if (response.status === 401) {
         showLoginScreen();
+        return null;
+      }
+      if (response.status === 403) {
+        const reason = response.headers.get('X-Reason');
+        if (reason === 'status_not_active') {
+          showPendingScreen();
+        }
         return null;
       }
       if (response.status === 404) return null;
@@ -1211,6 +1226,8 @@ async function handleDropPromptToFolder(slug, folderPath) {
 function setupHeaderButtons() {
   const newPromptBtn = document.getElementById('newPromptBtn');
   const logoutBtn = document.getElementById('logoutBtn');
+  const adminUsersBtn = document.getElementById('adminUsersBtn');
+  const logoutFromPendingBtn = document.getElementById('logoutFromPendingBtn');
 
   if (newPromptBtn) {
     newPromptBtn.addEventListener('click', () => {
@@ -1234,6 +1251,18 @@ function setupHeaderButtons() {
       if (confirm('Вы уверены, что хотите выйти?')) {
         await handleLogout();
       }
+    });
+  }
+
+  if (adminUsersBtn) {
+    adminUsersBtn.addEventListener('click', () => {
+      showAdminPanel();
+    });
+  }
+
+  if (logoutFromPendingBtn) {
+    logoutFromPendingBtn.addEventListener('click', async () => {
+      await handleLogout();
     });
   }
 }
@@ -1540,6 +1569,8 @@ async function loadVersion() {
 
 // ---------- AUTH FUNCTIONS ----------
 
+let currentUser = null; // Храним данные текущего пользователя
+
 async function checkAuth() {
   try {
     // Проверяем авторизацию через эндпоинт /api/auth/me
@@ -1548,16 +1579,41 @@ async function checkAuth() {
       credentials: 'include',
     });
     if (response.ok) {
-      isAuthenticated = true;
-      showMainApp();
-      return true;
+      const userData = await response.json();
+      currentUser = userData;
+      // Проверяем статус пользователя
+      if (userData.status === 'active') {
+        isAuthenticated = true;
+        showMainApp();
+        // Показываем кнопку админ-панели только для admin
+        const adminBtn = document.getElementById('adminUsersBtn');
+        if (adminBtn && userData.access_level === 'admin') {
+          adminBtn.style.display = 'block';
+        }
+        return true;
+      } else {
+        // Пользователь залогинен, но статус не active
+        isAuthenticated = false;
+        showPendingScreen();
+        return false;
+      }
     } else if (response.status === 401) {
       isAuthenticated = false;
+      currentUser = null;
       showLoginScreen();
+      return false;
+    } else if (response.status === 403) {
+      const reason = response.headers.get('X-Reason');
+      if (reason === 'status_not_active') {
+        showPendingScreen();
+      } else {
+        showLoginScreen();
+      }
       return false;
     }
     // Если не 401 и не 200, считаем что не авторизованы
     isAuthenticated = false;
+    currentUser = null;
     showLoginScreen();
     return false;
   } catch (error) {
@@ -1570,16 +1626,30 @@ async function checkAuth() {
 function showLoginScreen() {
   const loginScreen = document.getElementById('loginScreen');
   const mainApp = document.getElementById('mainApp');
+  const pendingScreen = document.getElementById('pendingScreen');
   if (loginScreen) loginScreen.style.display = 'flex';
   if (mainApp) mainApp.style.display = 'none';
+  if (pendingScreen) pendingScreen.style.display = 'none';
+  isAuthenticated = false;
+}
+
+function showPendingScreen() {
+  const loginScreen = document.getElementById('loginScreen');
+  const mainApp = document.getElementById('mainApp');
+  const pendingScreen = document.getElementById('pendingScreen');
+  if (loginScreen) loginScreen.style.display = 'none';
+  if (mainApp) mainApp.style.display = 'none';
+  if (pendingScreen) pendingScreen.style.display = 'flex';
   isAuthenticated = false;
 }
 
 function showMainApp() {
   const loginScreen = document.getElementById('loginScreen');
   const mainApp = document.getElementById('mainApp');
+  const pendingScreen = document.getElementById('pendingScreen');
   if (loginScreen) loginScreen.style.display = 'none';
   if (mainApp) mainApp.style.display = 'block';
+  if (pendingScreen) pendingScreen.style.display = 'none';
   isAuthenticated = true;
 }
 
@@ -1647,6 +1717,160 @@ async function handleLogout() {
     setTimeout(() => {
       location.reload();
     }, 100);
+  }
+}
+
+// ---------- ADMIN PANEL ----------
+
+async function showAdminPanel() {
+  const editorContent = document.getElementById('editorContent');
+  const adminPanel = document.getElementById('adminPanel');
+  
+  if (!editorContent || !adminPanel) return;
+  
+  // Скрываем редактор, показываем админ-панель
+  editorContent.style.display = 'none';
+  adminPanel.style.display = 'block';
+  
+  try {
+    const response = await fetch(`${API_BASE}/admin/users`, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      if (response.status === 403) {
+        alert('Доступ запрещён. Только администраторы могут управлять пользователями.');
+        return;
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const users = await response.json();
+    renderAdminUsersList(users);
+  } catch (error) {
+    console.error('Ошибка загрузки пользователей:', error);
+    adminPanel.innerHTML = '<p style="color: var(--brandInk); padding: 24px;">Ошибка загрузки пользователей</p>';
+  }
+}
+
+function renderAdminUsersList(users) {
+  const adminPanel = document.getElementById('adminPanel');
+  const editorContent = document.getElementById('editorContent');
+  if (!adminPanel) return;
+  
+  let html = `
+    <div style="padding: 24px;">
+      <h2 style="font-size: 22px; font-weight: 600; margin-bottom: 20px; color: var(--brandInk);">
+        Управление пользователями
+      </h2>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.3);">
+              <th style="padding: 12px; text-align: left; color: var(--brandInk); font-weight: 600;">ID</th>
+              <th style="padding: 12px; text-align: left; color: var(--brandInk); font-weight: 600;">Telegram ID</th>
+              <th style="padding: 12px; text-align: left; color: var(--brandInk); font-weight: 600;">Имя</th>
+              <th style="padding: 12px; text-align: left; color: var(--brandInk); font-weight: 600;">Статус</th>
+              <th style="padding: 12px; text-align: left; color: var(--brandInk); font-weight: 600;">Уровень доступа</th>
+              <th style="padding: 12px; text-align: left; color: var(--brandInk); font-weight: 600;">Последний вход</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+  
+  users.forEach(user => {
+    const lastLogin = user.last_login_at 
+      ? new Date(user.last_login_at).toLocaleString('ru-RU')
+      : 'Никогда';
+    
+    html += `
+      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);" data-user-id="${user.id}">
+        <td style="padding: 12px;">${user.id}</td>
+        <td style="padding: 12px;">${user.telegram_id}</td>
+        <td style="padding: 12px;">${user.first_name || user.username || '—'}</td>
+        <td style="padding: 12px;">
+          <select class="user-status-select" data-user-id="${user.id}" style="padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.15); color: var(--brandInk); cursor: pointer;">
+            <option value="pending" ${user.status === 'pending' ? 'selected' : ''}>Ожидает</option>
+            <option value="active" ${user.status === 'active' ? 'selected' : ''}>Активен</option>
+            <option value="blocked" ${user.status === 'blocked' ? 'selected' : ''}>Заблокирован</option>
+          </select>
+        </td>
+        <td style="padding: 12px;">
+          <select class="user-access-select" data-user-id="${user.id}" style="padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.15); color: var(--brandInk); cursor: pointer;">
+            <option value="user" ${user.access_level === 'user' ? 'selected' : ''}>Пользователь</option>
+            <option value="tech" ${user.access_level === 'tech' ? 'selected' : ''}>Техник</option>
+            <option value="admin" ${user.access_level === 'admin' ? 'selected' : ''}>Администратор</option>
+          </select>
+        </td>
+        <td style="padding: 12px; font-size: 12px; color: rgba(58, 42, 79, 0.7);">${lastLogin}</td>
+      </tr>
+    `;
+  });
+  
+  html += `
+          </tbody>
+        </table>
+      </div>
+      <button id="closeAdminPanelBtn" class="btn" style="margin-top: 20px;">Закрыть</button>
+    </div>
+  `;
+  
+  adminPanel.innerHTML = html;
+  
+  // Обработчики для селектов
+  adminPanel.querySelectorAll('.user-status-select').forEach(select => {
+    select.addEventListener('change', async (e) => {
+      const userId = parseInt(e.target.dataset.userId);
+      const newStatus = e.target.value;
+      await updateUserField(userId, { status: newStatus });
+    });
+  });
+  
+  adminPanel.querySelectorAll('.user-access-select').forEach(select => {
+    select.addEventListener('change', async (e) => {
+      const userId = parseInt(e.target.dataset.userId);
+      const newAccessLevel = e.target.value;
+      await updateUserField(userId, { access_level: newAccessLevel });
+    });
+  });
+  
+  // Кнопка закрытия
+  const closeBtn = adminPanel.querySelector('#closeAdminPanelBtn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (adminPanel) adminPanel.style.display = 'none';
+      if (editorContent) editorContent.style.display = 'block';
+    });
+  }
+}
+
+async function updateUserField(userId, data) {
+  try {
+    const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      if (response.status === 403) {
+        alert('Доступ запрещён. Только администраторы могут изменять пользователей.');
+        return;
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const updatedUser = await response.json();
+    console.log('Пользователь обновлён:', updatedUser);
+    
+    // Обновляем список пользователей
+    await showAdminPanel();
+  } catch (error) {
+    console.error('Ошибка обновления пользователя:', error);
+    alert('Ошибка обновления пользователя. Проверьте консоль.');
   }
 }
 

@@ -9,13 +9,23 @@ class UserBase(BaseModel):
     username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    role: str = "user"
+    role: str = "user"  # Оставляем для обратной совместимости
+    status: str = "pending"
+    access_level: str = "user"
 
 
 class UserOut(UserBase):
     id: int
     created_at: datetime
     last_login_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserUpdate(BaseModel):
+    status: Optional[str] = None  # pending, active, blocked
+    access_level: Optional[str] = None  # admin, tech, user
 
     class Config:
         from_attributes = True

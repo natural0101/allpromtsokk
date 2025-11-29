@@ -12,7 +12,9 @@ class User(Base):
     username = Column(String(255), nullable=True)
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
-    role = Column(String(50), default="user", nullable=False)
+    role = Column(String(50), default="user", nullable=False)  # Оставляем для обратной совместимости
+    status = Column(String(50), default="pending", nullable=False)  # pending, active, blocked
+    access_level = Column(String(50), default="user", nullable=False)  # admin, tech, user
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     last_login_at = Column(DateTime, nullable=True)
     

@@ -9,7 +9,7 @@ from . import crud
 from .db import Base, engine, get_db
 from .middleware import AuthMiddleware
 from .models import User
-from .routers import auth
+from .routers import auth, admin
 from .schemas import PromptCreate, PromptOut, PromptUpdate
 
 # Загружаем переменные окружения из .env
@@ -20,14 +20,67 @@ app = FastAPI(title="autookk backend", version="1.0.0")
 # Подключаем middleware авторизации
 app.add_middleware(AuthMiddleware)
 
-# Подключаем роутер авторизации
+# Подключаем роутеры
 app.include_router(auth.router)
+app.include_router(admin.router)
 
 
 @app.on_event("startup")
 def on_startup() -> None:
     # Ensure all tables are created
     Base.metadata.create_all(bind=engine)
+    
+    # Миграция существующих пользователей: устанавливаем status="active" и access_level
+    from .db import SessionLocal
+    from .models import User
+    
+    db = SessionLocal()
+    try:
+        # Получаем всех пользователей
+        users = db.query(User).all()
+        updated = False
+        for user in users:
+            user_updated = False
+            # Если status не установлен или пустой, устанавливаем "active"
+            # SQLAlchemy автоматически создаст колонку при следующем запросе, но проверим явно
+            try:
+                if not hasattr(user, 'status') or user.status is None or user.status == '':
+                    user.status = "active"
+                    user_updated = True
+            except AttributeError:
+                # Колонка может не существовать в старых БД, но SQLAlchemy создаст её
+                user.status = "active"
+                user_updated = True
+            
+            # Если access_level не установлен или пустой, устанавливаем на основе role
+            try:
+                if not hasattr(user, 'access_level') or user.access_level is None or user.access_level == '':
+                    if user.role == "admin":
+                        user.access_level = "admin"
+                    else:
+                        user.access_level = "user"
+                    user_updated = True
+            except AttributeError:
+                # Колонка может не существовать в старых БД
+                if user.role == "admin":
+                    user.access_level = "admin"
+                else:
+                    user.access_level = "user"
+                user_updated = True
+            
+            if user_updated:
+                updated = True
+        
+        if updated:
+            db.commit()
+            print("Миграция пользователей завершена успешно")
+    except Exception as e:
+        print(f"Ошибка при миграции пользователей: {e}")
+        import traceback
+        traceback.print_exc()
+        db.rollback()
+    finally:
+        db.close()
 
 
 @app.get("/api/health")
@@ -48,11 +101,24 @@ def get_current_user(request: Request) -> User:
     return request.state.user
 
 
-def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
+def get_active_user(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Dependency для проверки, что пользователь имеет статус "active".
+    """
+    if current_user.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="access_denied",
+            headers={"X-Reason": "status_not_active"}
+        )
+    return current_user
+
+
+def get_admin_user(current_user: User = Depends(get_active_user)) -> User:
     """
     Dependency для проверки, что пользователь является администратором.
     """
-    if current_user.role != "admin":
+    if current_user.access_level != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
@@ -65,6 +131,7 @@ def list_prompts(
     folder: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_active_user),
 ):
     return crud.list_prompts(db=db, folder=folder, search=search)
 
@@ -73,6 +140,7 @@ def list_prompts(
 def get_prompt(
     slug: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_active_user),
 ):
     prompt = crud.get_prompt_by_slug(db, slug=slug)
     if not prompt:

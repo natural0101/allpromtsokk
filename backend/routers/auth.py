@@ -52,6 +52,7 @@ def telegram_login(
     user = get_user_by_telegram_id(db, telegram_id=payload.id)
     
     if not user:
+        # Новый пользователь: создаём со status="pending", access_level="user"
         user = create_user(
             db,
             telegram_id=payload.id,
@@ -60,7 +61,7 @@ def telegram_login(
             last_name=payload.last_name,
         )
     else:
-        # Обновляем данные пользователя, если изменились
+        # Существующий пользователь: обновляем только данные профиля, НЕ меняем status и access_level
         if payload.username and payload.username != user.username:
             user.username = payload.username
         if payload.first_name and payload.first_name != user.first_name:
@@ -90,6 +91,8 @@ def telegram_login(
             "id": user.id,
             "username": user.username,
             "role": user.role,
+            "status": user.status,
+            "access_level": user.access_level,
         }
     }
 

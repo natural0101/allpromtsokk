@@ -24,6 +24,8 @@ def create_user(
         first_name=first_name,
         last_name=last_name,
         role="user",
+        status="pending",
+        access_level="user",
         last_login_at=datetime.utcnow(),
     )
     db.add(db_user)

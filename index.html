@@ -22,6 +22,24 @@
     </div>
   </div>
 
+  <!-- Экран ожидания одобрения -->
+  <div id="pendingScreen" class="login-screen" style="display: none;">
+    <div class="login-container glass">
+      <div class="login-header">
+        <h1 class="app-logo-login">autokk</h1>
+        <p class="login-subtitle" style="color: rgba(255, 152, 0, 0.9);">
+          Ваш аккаунт ожидает одобрения администратором
+        </p>
+        <p style="font-size: 14px; color: rgba(58, 42, 79, 0.7); margin-top: 12px;">
+          После одобрения вы сможете просматривать и работать с промптами
+        </p>
+      </div>
+      <button id="logoutFromPendingBtn" class="btn" style="padding: 12px 24px; font-size: 16px; margin-top: 20px;">
+        Выйти
+      </button>
+    </div>
+  </div>
+
   <!-- Основной интерфейс -->
   <div id="mainApp" class="main-app" style="display: none;">
     <div class="app-logo">autokk</div>
@@ -31,6 +49,7 @@
       <div class="sidebar-header">
         <h1>Промпты</h1>
         <div class="sidebar-actions">
+          <button id="adminUsersBtn" class="btn-icon" title="Пользователи" style="display: none;">👥</button>
           <button id="newPromptBtn" class="btn-icon" title="Создать промпт">➕</button>
           <button id="logoutBtn" class="btn-icon" title="Выйти">🚪</button>
         </div>
@@ -63,12 +82,15 @@
       </div>
     </aside>
 
-    <!-- Правая панель: редактор -->
+    <!-- Правая панель: редактор или админ-панель -->
     <main class="editor glass">
       <div id="editorContent" class="editor-content">
         <div class="editor-placeholder">
           <p>Выберите промпт слева для просмотра и редактирования</p>
         </div>
+      </div>
+      <div id="adminPanel" class="admin-panel" style="display: none;">
+        <!-- Админ-панель будет отрендерена здесь -->
       </div>
     </main>
   </div>
