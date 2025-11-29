@@ -53,7 +53,6 @@ def list_prompts(
     folder: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     return crud.list_prompts(db=db, folder=folder, search=search)
 
@@ -62,7 +61,6 @@ def list_prompts(
 def get_prompt(
     slug: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     prompt = crud.get_prompt_by_slug(db, slug=slug)
     if not prompt:

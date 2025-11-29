@@ -29,9 +29,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Проверяем, нужна ли авторизация для этого роута
         path = request.url.path
+        method = request.method
+        
+        # Публичные роуты (всегда доступны)
         is_public = any(path.startswith(route) for route in self.PUBLIC_ROUTES)
         
-        if is_public:
+        # GET-запросы к /api/prompts не требуют авторизации
+        is_public_get_prompts = (
+            method == "GET" and 
+            (path == "/api/prompts" or path.startswith("/api/prompts/"))
+        )
+        
+        if is_public or is_public_get_prompts:
             return await call_next(request)
         
         # Извлекаем токен из cookie или заголовка
