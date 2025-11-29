@@ -38,8 +38,6 @@ class TelegramAuthData(BaseModel):
     username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    auth_date: int
-    hash: str
 
 
 class PromptBase(BaseModel):
