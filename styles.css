@@ -744,10 +744,11 @@ mark {
 }
 
 .delete-modal-text {
-  font-size: 14px;
-  color: rgba(58, 42, 79, 0.7);
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.8);
   margin-bottom: 24px;
-  line-height: 1.6;
+  line-height: 1.4;
 }
 
 .delete-modal-actions {
@@ -789,4 +790,216 @@ mark {
 .delete-modal-btn-cancel:hover {
   background: rgba(255, 255, 255, 0.3);
   border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Папки с вложенными папками */
+.tree-node-folder-nested .tree-node-icon {
+  position: relative;
+}
+
+.tree-node-folder-nested .tree-node-icon::after {
+  content: '📁';
+  position: absolute;
+  top: -2px;
+  left: 8px;
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.tree-node-folder-nested {
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+/* Главная папка направления */
+.tree-node-folder-main {
+  background: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  position: relative;
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 1px rgba(179, 141, 255, 0.3);
+}
+
+.tree-node-folder-main::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, rgba(179, 141, 255, 0.6), rgba(225, 207, 253, 0.6));
+  border-radius: 20px 0 0 20px;
+}
+
+/* Иконка настроек папки */
+.tree-node-settings {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+  padding: 4px;
+  margin-left: auto;
+  margin-right: 4px;
+  display: none;
+}
+
+.tree-node-item:hover .tree-node-settings {
+  display: block;
+}
+
+.tree-node-settings:hover {
+  opacity: 1;
+  transform: rotate(90deg);
+}
+
+/* Поповер настроек папки */
+.folder-settings-popover {
+  z-index: 10002;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  min-width: 180px;
+}
+
+.folder-settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.folder-settings-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--brandInk);
+  user-select: none;
+}
+
+.folder-settings-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--brandLavenderDeep);
+}
+
+/* Иконка копии */
+.copy-icon {
+  display: inline-block;
+  font-size: 14px;
+  opacity: 0.6;
+  vertical-align: middle;
+}
+
+/* Цветные акценты для importance */
+.prompt-important {
+  filter: drop-shadow(0 0 4px rgba(255, 152, 0, 0.4));
+}
+
+.prompt-test {
+  filter: drop-shadow(0 0 4px rgba(76, 175, 80, 0.4));
+}
+
+.prompt-normal {
+  filter: drop-shadow(0 0 4px rgba(179, 141, 255, 0.4));
+}
+
+/* Бейдж importance */
+.importance-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+}
+
+.importance-important {
+  background: rgba(255, 152, 0, 0.15);
+  color: rgba(255, 87, 34, 0.9);
+  border: 1px solid rgba(255, 152, 0, 0.25);
+}
+
+.importance-test {
+  background: rgba(76, 175, 80, 0.15);
+  color: rgba(56, 142, 60, 0.9);
+  border: 1px solid rgba(76, 175, 80, 0.25);
+}
+
+.importance-normal {
+  background: rgba(179, 141, 255, 0.15);
+  color: rgba(103, 58, 183, 0.9);
+  border: 1px solid rgba(179, 141, 255, 0.25);
+}
+
+/* Теги с цветом importance */
+.tag-chip-important {
+  background: rgba(255, 152, 0, 0.12) !important;
+  border-color: rgba(255, 152, 0, 0.2) !important;
+}
+
+.tag-chip-test {
+  background: rgba(76, 175, 80, 0.12) !important;
+  border-color: rgba(76, 175, 80, 0.2) !important;
+}
+
+/* Переключатель типа промпта */
+.importance-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.importance-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--brandInk);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.importance-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.importance-btn.active {
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.importance-btn[data-importance="important"].active {
+  background: rgba(255, 152, 0, 0.2);
+  border-color: rgba(255, 152, 0, 0.3);
+  color: rgba(255, 87, 34, 0.9);
+}
+
+.importance-btn[data-importance="test"].active {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: rgba(76, 175, 80, 0.3);
+  color: rgba(56, 142, 60, 0.9);
+}
+
+.importance-btn[data-importance="normal"].active {
+  background: rgba(179, 141, 255, 0.2);
+  border-color: rgba(179, 141, 255, 0.3);
+  color: rgba(103, 58, 183, 0.9);
 }

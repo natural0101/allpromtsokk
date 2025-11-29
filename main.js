@@ -263,9 +263,15 @@ function renderFolderNode(node, level) {
   
   const isCollapsed = collapsedFolders.has(node.fullPath);
   const indent = level * 20;
+  const hasNested = hasNestedFolders(node);
+  const folderMeta = getFolderMetadata(node.fullPath);
+  const isMainFolder = folderMeta.isMainFolder;
   
   const itemDiv = document.createElement('div');
-  itemDiv.className = 'tree-node-item';
+  let itemClasses = 'tree-node-item';
+  if (hasNested) itemClasses += ' tree-node-folder-nested';
+  if (isMainFolder) itemClasses += ' tree-node-folder-main';
+  itemDiv.className = itemClasses;
   itemDiv.setAttribute('data-action', 'toggle-folder');
   itemDiv.style.paddingLeft = `${indent}px`;
   
@@ -279,6 +285,9 @@ function renderFolderNode(node, level) {
   
   const iconSpan = document.createElement('span');
   iconSpan.className = 'tree-node-icon';
+  if (hasNested) {
+    iconSpan.className += ' tree-node-icon-nested';
+  }
   // Для группы "Без папки" используем другую иконку
   iconSpan.textContent = node.fullPath === '__no_folder__' ? '📂' : '📁';
   iconSpan.style.marginRight = '6px';
@@ -288,9 +297,22 @@ function renderFolderNode(node, level) {
   titleSpan.textContent = node.name;
   titleSpan.setAttribute('data-action', 'toggle-folder');
 
+  // Иконка настроек папки
+  const settingsBtn = document.createElement('button');
+  settingsBtn.className = 'tree-node-settings';
+  settingsBtn.innerHTML = '⚙️';
+  settingsBtn.setAttribute('title', 'Настройки папки');
+  settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showFolderSettings(node.fullPath, itemDiv);
+  });
+
   itemDiv.appendChild(toggleSpan);
   itemDiv.appendChild(iconSpan);
   itemDiv.appendChild(titleSpan);
+  if (node.fullPath !== '__no_folder__') {
+    itemDiv.appendChild(settingsBtn);
+  }
 
   // Drag & Drop handlers для папки
   itemDiv.addEventListener('dragover', (e) => {
@@ -442,6 +464,14 @@ function renderPromptItem(prompt) {
     
   const iconSpan = document.createElement('span');
   iconSpan.className = 'tree-node-icon';
+  const importance = prompt.importance || 'normal';
+  if (importance === 'important') {
+    iconSpan.className += ' prompt-important';
+  } else if (importance === 'test') {
+    iconSpan.className += ' prompt-test';
+  } else {
+    iconSpan.className += ' prompt-normal';
+  }
   iconSpan.textContent = '📄';
   iconSpan.style.marginRight = '6px';
 
@@ -455,9 +485,16 @@ function renderPromptItem(prompt) {
   titleSpan.style.display = 'block';
   titleSpan.style.marginBottom = '6px';
   
+  // Иконка копии, если это копия
+  let titleContent = '';
+  if (isCopyPrompt(prompt.name)) {
+    titleContent += '<span class="copy-icon" title="Копия промпта">📋</span> ';
+  }
+  
   // Подсветка совпадений в названии
   const searchQuery = document.getElementById('searchInput')?.value.trim() || '';
-  titleSpan.innerHTML = highlightText(prompt.name || 'Без названия', searchQuery);
+  titleContent += highlightText(prompt.name || 'Без названия', searchQuery);
+  titleSpan.innerHTML = titleContent;
     
   const metaDiv = document.createElement('div');
   metaDiv.style.fontSize = '8px';
@@ -569,16 +606,37 @@ function renderViewMode(prompt) {
   let tagsHtml = '';
   if (prompt.tags) {
     const tagsArray = prompt.tags.split(',').map(t => t.trim()).filter(t => t);
-    tagsHtml = tagsArray.map(tag => 
-      `<span class="tag-chip" data-tag="${escapeHtml(tag)}" style="cursor: pointer;">${escapeHtml(tag)}</span>`
-    ).join('');
+    const importance = prompt.importance || 'normal';
+    tagsHtml = tagsArray.map(tag => {
+      let chipClass = 'tag-chip';
+      if (importance === 'important') chipClass += ' tag-chip-important';
+      else if (importance === 'test') chipClass += ' tag-chip-test';
+      return `<span class="${chipClass}" data-tag="${escapeHtml(tag)}" style="cursor: pointer;">${escapeHtml(tag)}</span>`;
+    }).join('');
+  }
+  
+  // Иконка копии
+  const copyIcon = isCopyPrompt(prompt.name) ? '<span class="copy-icon" title="Копия промпта" style="margin-right: 6px;">📋</span>' : '';
+  
+  // Бейдж importance
+  const importance = prompt.importance || 'normal';
+  let importanceBadge = '';
+  if (importance === 'important') {
+    importanceBadge = '<span class="importance-badge importance-important">Важный</span>';
+  } else if (importance === 'test') {
+    importanceBadge = '<span class="importance-badge importance-test">Тестовый</span>';
+  } else {
+    importanceBadge = '<span class="importance-badge importance-normal">Обычный</span>';
   }
   
   container.innerHTML = `
     <div class="editor-header">
       <div style="flex: 1;">
-        <h2 style="font-size: 22px; font-weight: 600; margin: 0; color: var(--brandInk);">${highlightText(prompt.name || 'Без названия', document.getElementById('searchInput')?.value.trim() || '')}</h2>
+        <h2 style="font-size: 22px; font-weight: 600; margin: 0; color: var(--brandInk); display: flex; align-items: center; gap: 8px;">
+          ${copyIcon}${highlightText(prompt.name || 'Без названия', document.getElementById('searchInput')?.value.trim() || '')}
+        </h2>
         <div style="display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: rgba(58, 42, 79, 0.6); align-items: center; flex-wrap: wrap;">
+          ${importanceBadge}
           ${prompt.folder ? `<span>📁 ${escapeHtml(prompt.folder)}</span>` : ''}
           ${tagsHtml ? `<div style="display: flex; gap: 6px; flex-wrap: wrap;">${tagsHtml}</div>` : ''}
         </div>
@@ -681,18 +739,22 @@ function checkFormChanges() {
 
   if (!nameInput || !textInput || !originalFormData) return false;
 
+  const importanceInput = document.getElementById('promptImportanceInput');
+  
   const currentData = {
     name: nameInput.value.trim(),
     text: textInput.value.trim(),
     folder: folderInput?.value.trim() || null,
     tags: tagsInput?.value.trim() || null,
+    importance: importanceInput?.value || 'normal',
   };
 
   return (
     currentData.name !== originalFormData.name ||
     currentData.text !== originalFormData.text ||
     currentData.folder !== originalFormData.folder ||
-    currentData.tags !== originalFormData.tags
+    currentData.tags !== originalFormData.tags ||
+    currentData.importance !== originalFormData.importance
   );
 }
 
@@ -714,6 +776,7 @@ function renderEditForm(prompt = null) {
     text: prompt?.text || '',
     folder: prompt?.folder || null,
     tags: prompt?.tags || null,
+    importance: prompt?.importance || 'normal',
   };
   hasUnsavedChanges = false;
 
@@ -781,6 +844,21 @@ function renderEditForm(prompt = null) {
   const textInput = document.getElementById('promptTextInput');
   const folderInput = document.getElementById('promptFolderInput');
   const tagsInput = document.getElementById('promptTagsInput');
+  const importanceInput = document.getElementById('promptImportanceInput');
+  
+  // Обработчики для переключателя типа промпта
+  const importanceButtons = container.querySelectorAll('.importance-btn');
+  importanceButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      importanceButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (importanceInput) {
+        importanceInput.value = btn.dataset.importance;
+        hasUnsavedChanges = true;
+        updateTextareaBorder();
+      }
+    });
+  });
 
   // Функция для обновления стиля рамки textarea
   function updateTextareaBorder() {
@@ -950,6 +1028,7 @@ async function handleSavePrompt(slug = null) {
   const textInput = document.getElementById('promptTextInput');
   const folderInput = document.getElementById('promptFolderInput');
   const tagsInput = document.getElementById('promptTagsInput');
+  const importanceInput = document.getElementById('promptImportanceInput');
 
   if (!nameInput || !textInput) return;
 
@@ -957,6 +1036,7 @@ async function handleSavePrompt(slug = null) {
   const text = textInput.value.trim();
   const folderValue = folderInput?.value.trim() || null;
   const tagsValue = tagsInput?.value.trim() || null;
+  const importanceValue = importanceInput?.value || 'normal';
 
   if (!name || !text) {
     alert('Название и текст обязательны для заполнения');
@@ -969,6 +1049,7 @@ async function handleSavePrompt(slug = null) {
       text,
       folder: folderValue,
       tags: tagsValue,
+      importance: importanceValue,
     };
 
     let savedPrompt;
@@ -1007,6 +1088,7 @@ async function handleDuplicatePrompt(slug) {
       text: prompt.text,
       folder: prompt.folder || null,
       tags: prompt.tags || null,
+      importance: prompt.importance || 'normal',
     };
 
     const duplicatedPrompt = await createPrompt(data);
@@ -1063,6 +1145,7 @@ async function handleDropPromptToFolder(slug, folderPath) {
     text: prompt.text,
     folder: newFolder,
     tags: prompt.tags || null,
+    importance: prompt.importance || 'normal',
   };
 
   try {
@@ -1213,6 +1296,27 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function isCopyPrompt(name) {
+  return name && name.trim().endsWith(' (копия)');
+}
+
+// Хранение метаданных папок (isMainFolder)
+const folderMetadata = JSON.parse(localStorage.getItem('folderMetadata') || '{}');
+
+function getFolderMetadata(folderPath) {
+  return folderMetadata[folderPath] || { isMainFolder: false };
+}
+
+function setFolderMetadata(folderPath, metadata) {
+  folderMetadata[folderPath] = metadata;
+  localStorage.setItem('folderMetadata', JSON.stringify(folderMetadata));
+}
+
+function hasNestedFolders(node) {
+  const childKeys = Object.keys(node.children || {});
+  return childKeys.length > 0;
+}
+
 function highlightText(text, searchQuery) {
   if (!searchQuery || !text) return escapeHtml(text);
   const query = searchQuery.trim();
@@ -1250,6 +1354,55 @@ function showToast(message) {
       }
     }, 300);
   }, 2000);
+}
+
+function showFolderSettings(folderPath, itemElement) {
+  // Удаляем существующий поповер
+  const existingPopover = document.getElementById('folderSettingsPopover');
+  if (existingPopover) {
+    existingPopover.remove();
+  }
+  
+  const folderMeta = getFolderMetadata(folderPath);
+  const isMainFolder = folderMeta.isMainFolder;
+  
+  const popover = document.createElement('div');
+  popover.id = 'folderSettingsPopover';
+  popover.className = 'folder-settings-popover';
+  
+  const rect = itemElement.getBoundingClientRect();
+  popover.style.position = 'fixed';
+  popover.style.top = `${rect.bottom + 8}px`;
+  popover.style.left = `${rect.right - 200}px`;
+  
+  popover.innerHTML = `
+    <div class="folder-settings-content">
+      <label class="folder-settings-checkbox">
+        <input type="checkbox" ${isMainFolder ? 'checked' : ''} id="folderMainCheckbox">
+        <span>Папка направления</span>
+      </label>
+    </div>
+  `;
+  
+  document.body.appendChild(popover);
+  
+  const checkbox = popover.querySelector('#folderMainCheckbox');
+  checkbox.addEventListener('change', (e) => {
+    const newMeta = { isMainFolder: e.target.checked };
+    setFolderMetadata(folderPath, newMeta);
+    renderPromptsList();
+  });
+  
+  // Закрытие при клике вне поповера
+  const closeHandler = (e) => {
+    if (!popover.contains(e.target) && e.target !== itemElement.querySelector('.tree-node-settings')) {
+      popover.remove();
+      document.removeEventListener('click', closeHandler);
+    }
+  };
+  setTimeout(() => {
+    document.addEventListener('click', closeHandler);
+  }, 100);
 }
 
 function showDeleteConfirm(message) {
