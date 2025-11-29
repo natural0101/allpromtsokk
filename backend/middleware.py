@@ -34,8 +34,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if is_public:
             return await call_next(request)
         
-        # Извлекаем токен из cookie
+        # Извлекаем токен из cookie или заголовка
         session_token = request.cookies.get("session_id")
+        
+        # Если нет в cookie, проверяем заголовок Authorization или X-Session-Token
+        if not session_token:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                session_token = auth_header[7:]  # Убираем "Bearer "
+            else:
+                session_token = request.headers.get("X-Session-Token")
         
         if not session_token:
             return Response(

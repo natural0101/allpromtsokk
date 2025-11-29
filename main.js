@@ -13,6 +13,21 @@ let isAuthenticated = false; // Флаг авторизации
 
 // ---------- API FUNCTIONS ----------
 
+// Функция для получения заголовков с токеном
+function getAuthHeaders() {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  // Пробуем получить токен из localStorage (на случай проблем с cookie)
+  const token = localStorage.getItem('session_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+}
+
 async function fetchPrompts(folder = null, search = null) {
   try {
     const params = new URLSearchParams();
@@ -22,9 +37,11 @@ async function fetchPrompts(folder = null, search = null) {
     const url = `${API_BASE}/prompts${params.toString() ? '?' + params.toString() : ''}`;
     const response = await fetch(url, {
       credentials: 'include',
+      headers: getAuthHeaders(),
     });
     if (!response.ok) {
       if (response.status === 401) {
+        localStorage.removeItem('session_token');
         showLoginScreen();
         throw new Error('Unauthorized');
       }
@@ -41,9 +58,11 @@ async function fetchPromptBySlug(slug) {
   try {
     const response = await fetch(`${API_BASE}/prompts/${slug}`, {
       credentials: 'include',
+      headers: getAuthHeaders(),
     });
     if (!response.ok) {
       if (response.status === 401) {
+        localStorage.removeItem('session_token');
         showLoginScreen();
         return null;
       }
@@ -61,14 +80,13 @@ async function createPrompt(data) {
   try {
     const response = await fetch(`${API_BASE}/prompts`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!response.ok) {
       if (response.status === 401) {
+        localStorage.removeItem('session_token');
         showLoginScreen();
         throw new Error('Unauthorized');
       }
@@ -85,14 +103,13 @@ async function updatePrompt(slug, data) {
   try {
     const response = await fetch(`${API_BASE}/prompts/${slug}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!response.ok) {
       if (response.status === 401) {
+        localStorage.removeItem('session_token');
         showLoginScreen();
         return null;
       }
@@ -111,9 +128,11 @@ async function deletePrompt(slug) {
     const response = await fetch(`${API_BASE}/prompts/${slug}`, {
       method: 'DELETE',
       credentials: 'include',
+      headers: getAuthHeaders(),
     });
     if (!response.ok) {
       if (response.status === 401) {
+        localStorage.removeItem('session_token');
         showLoginScreen();
         return false;
       }
@@ -1532,12 +1551,14 @@ async function checkAuth() {
   try {
     const response = await fetch(`${API_BASE}/prompts?limit=1`, {
       credentials: 'include',
+      headers: getAuthHeaders(),
     });
     if (response.ok) {
       isAuthenticated = true;
       showMainApp();
       return true;
     } else if (response.status === 401) {
+      localStorage.removeItem('session_token');
       isAuthenticated = false;
       showLoginScreen();
       return false;
@@ -1579,8 +1600,6 @@ async function handleTelegramAuth(user) {
         username: user.username || null,
         first_name: user.first_name || null,
         last_name: user.last_name || null,
-        auth_date: user.auth_date,
-        hash: user.hash,
       }),
     });
     
@@ -1590,8 +1609,14 @@ async function handleTelegramAuth(user) {
       return;
     }
     
-    const userData = await response.json();
-    console.log('Авторизация успешна:', userData);
+    const authData = await response.json();
+    console.log('Авторизация успешна:', authData);
+    
+    // Сохраняем токен в localStorage на случай проблем с cookie
+    if (authData.token) {
+      localStorage.setItem('session_token', authData.token);
+    }
+    
     showMainApp();
     await loadPrompts();
   } catch (error) {
@@ -1605,7 +1630,11 @@ async function handleLogout() {
     const response = await fetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
       credentials: 'include',
+      headers: getAuthHeaders(),
     });
+    
+    // Удаляем токен из localStorage
+    localStorage.removeItem('session_token');
     
     if (response.ok) {
       showLoginScreen();
@@ -1617,7 +1646,8 @@ async function handleLogout() {
     }
   } catch (error) {
     console.error('Ошибка выхода:', error);
-    // Всё равно показываем экран логина
+    // Всё равно очищаем токен и показываем экран логина
+    localStorage.removeItem('session_token');
     showLoginScreen();
   }
 }
