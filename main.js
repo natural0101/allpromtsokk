@@ -453,7 +453,7 @@ function renderPromptItem(prompt) {
   titleSpan.className = 'tree-node-title';
   titleSpan.setAttribute('data-action', 'select');
   titleSpan.style.display = 'block';
-  titleSpan.style.marginBottom = '4px';
+  titleSpan.style.marginBottom = '6px';
   
   // Подсветка совпадений в названии
   const searchQuery = document.getElementById('searchInput')?.value.trim() || '';
@@ -463,8 +463,9 @@ function renderPromptItem(prompt) {
   metaDiv.style.fontSize = '8px';
   metaDiv.style.color = 'rgba(58, 42, 79, 0.6)';
   metaDiv.style.display = 'flex';
-  metaDiv.style.gap = '6px';
+  metaDiv.style.gap = '4px';
   metaDiv.style.flexWrap = 'wrap';
+  metaDiv.style.alignItems = 'center';
 
   if (prompt.tags) {
     const tagsArray = prompt.tags.split(',').map(t => t.trim()).filter(t => t);
@@ -657,7 +658,8 @@ function renderViewMode(prompt) {
   
   if (deleteBtn) {
     deleteBtn.addEventListener('click', async () => {
-      if (confirm(`Удалить промпт "${prompt.name}"?`)) {
+      const confirmed = await showDeleteConfirm(`Удалить промпт "${prompt.name}"?`);
+      if (confirmed) {
         await handleDeletePrompt(prompt.slug);
       }
     });
@@ -920,8 +922,11 @@ function setupPromptsListEvents() {
     } else if (action === 'delete') {
       e.stopPropagation();
       const prompt = prompts.find(p => p.slug === slug);
-      if (prompt && confirm(`Удалить промпт "${prompt.name}"?`)) {
-        await handleDeletePrompt(slug);
+      if (prompt) {
+        const confirmed = await showDeleteConfirm(`Удалить промпт "${prompt.name}"?`);
+        if (confirmed) {
+          await handleDeletePrompt(slug);
+        }
       }
     }
   });
@@ -1245,6 +1250,75 @@ function showToast(message) {
       }
     }, 300);
   }, 2000);
+}
+
+function showDeleteConfirm(message) {
+  return new Promise((resolve) => {
+    // Удаляем существующую модалку, если есть
+    const existingModal = document.getElementById('deleteModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'delete-modal-overlay';
+    overlay.id = 'deleteModal';
+    
+    const modal = document.createElement('div');
+    modal.className = 'delete-modal';
+    
+    modal.innerHTML = `
+      <div class="delete-modal-header">Подтвердите действие</div>
+      <div class="delete-modal-text">${escapeHtml(message)}</div>
+      <div class="delete-modal-actions">
+        <button class="delete-modal-btn delete-modal-btn-cancel">Нет</button>
+        <button class="delete-modal-btn delete-modal-btn-confirm">Да</button>
+      </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    const cancelBtn = modal.querySelector('.delete-modal-btn-cancel');
+    const confirmBtn = modal.querySelector('.delete-modal-btn-confirm');
+    
+    const close = (result) => {
+      overlay.style.animation = 'fadeOut 0.2s ease';
+      modal.style.animation = 'slideDown 0.2s ease';
+      setTimeout(() => {
+        if (overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+        resolve(result);
+      }, 200);
+    };
+    
+    cancelBtn.addEventListener('click', () => close(false));
+    confirmBtn.addEventListener('click', () => close(true));
+    
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        close(false);
+      }
+    });
+    
+    // Добавляем стили для анимации закрытия
+    if (!document.getElementById('deleteModalStyles')) {
+      const style = document.createElement('style');
+      style.id = 'deleteModalStyles';
+      style.textContent = `
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+        @keyframes slideDown {
+          from { transform: translateY(0); opacity: 1; }
+          to { transform: translateY(20px); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  });
 }
 
 // ---------- VERSION ----------

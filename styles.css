@@ -90,12 +90,12 @@ body::before {
   top: 24px;
   left: 24px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 32px;
+  font-weight: 600;
   color: #1a1a1a;
   z-index: 10000;
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
-  letter-spacing: -0.5px;
+  letter-spacing: -0.8px;
 }
 
 /* Левая панель */
@@ -169,23 +169,29 @@ body::before {
 .tree-node-item {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
-  margin: 2px 4px;
+  padding: 10px 14px;
+  margin: 4px 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
-  border-radius: 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .tree-node-item:hover {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
 .tree-node-item.selected {
-  background: rgba(179, 141, 255, 0.2);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(179, 141, 255, 0.15);
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
 }
 
 .tree-node-item[draggable="true"] {
@@ -266,19 +272,19 @@ body::before {
 
 /* Стиль для папок - футуристичный glass */
 .tree-node-item[data-action="toggle-folder"] .tree-node-icon {
-  opacity: 0.6;
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+  opacity: 0.7;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.4));
 }
 
 .tree-node-item[data-action="toggle-folder"] {
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .tree-node-item[data-action="toggle-folder"]:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
 .tree-node-title {
@@ -291,16 +297,17 @@ body::before {
   font-weight: 600;
 }
 
-/* Стиль для промптов - прозрачная карточка */
+/* Стиль для промптов - стеклянная карточка */
 .tree-node[data-slug] .tree-node-item {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .tree-node[data-slug] .tree-node-item:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .tree-node-actions {
@@ -623,19 +630,20 @@ body::before {
 /* Теги-чипы */
 .tag-chip {
   display: inline-block;
-  padding: 3px 10px;
-  background: rgba(179, 141, 255, 0.12);
-  border: 1px solid rgba(179, 141, 255, 0.2);
-  border-radius: 12px;
-  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(179, 141, 255, 0.15);
+  border: 1px solid rgba(179, 141, 255, 0.25);
+  border-radius: 11px;
+  font-size: 9px;
   color: var(--brandInk);
   transition: all 0.2s ease;
-  backdrop-filter: blur(5px);
-  line-height: 1.4;
+  backdrop-filter: blur(8px);
+  line-height: 1.3;
+  height: auto;
 }
 
 .tag-chip:hover {
-  background: rgba(179, 141, 255, 0.2);
+  background: rgba(179, 141, 255, 0.22);
   border-color: rgba(179, 141, 255, 0.35);
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(179, 141, 255, 0.15);
@@ -673,4 +681,112 @@ mark {
   padding: 2px 4px;
   border-radius: 4px;
   font-weight: 600;
+}
+
+/* Модалка подтверждения удаления */
+.delete-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.delete-modal {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 26px;
+  padding: 32px;
+  min-width: 400px;
+  max-width: 90vw;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.delete-modal-header {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--brandInk);
+  margin-bottom: 12px;
+}
+
+.delete-modal-text {
+  font-size: 14px;
+  color: rgba(58, 42, 79, 0.7);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.delete-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.delete-modal-btn {
+  padding: 10px 20px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.delete-modal-btn-confirm {
+  background: #1a1a1a;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.delete-modal-btn-confirm:hover {
+  background: #2a2a2a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+}
+
+.delete-modal-btn-cancel {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--brandInk);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.delete-modal-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
 }
