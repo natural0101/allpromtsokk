@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./prompts.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:////var/www/allpromtsokk/backend/prompts.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
