@@ -1028,3 +1028,76 @@ mark {
   border-color: rgba(179, 141, 255, 0.3);
   color: rgba(103, 58, 183, 0.9);
 }
+/* === OVERRIDE: ВИД ПАПОК === */
+
+/* Любая папка */
+.tree-node-item[data-action="toggle-folder"] {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.55),
+    rgba(225, 207, 253, 0.95)
+  );
+  border: 1px solid rgba(179, 141, 255, 0.9);
+  box-shadow: 0 6px 22px rgba(179, 141, 255, 0.4);
+}
+
+/* Иконка папки — яркая, как на референсе */
+.tree-node-item[data-action="toggle-folder"] .tree-node-icon {
+  opacity: 1;
+  color: #ffeb3b;
+  filter: drop-shadow(0 0 12px rgba(255, 235, 59, 0.9));
+}
+
+/* Главная папка направления */
+.tree-node-folder-main {
+  position: relative;
+  background: linear-gradient(135deg,
+    rgba(249, 245, 255, 1),
+    rgba(225, 207, 253, 1)
+  );
+  border-color: rgba(179, 141, 255, 1);
+}
+
+/* Лента слева у главной папки */
+.tree-node-folder-main::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(179, 141, 255, 1),
+    rgba(225, 207, 253, 0.9)
+  );
+  box-shadow: 0 0 10px rgba(179, 141, 255, 0.8);
+}
+
+/* Шестерёнка — чтобы было видно нормально */
+.tree-node-settings {
+  width: 24px;
+  height: 24px;
+  margin-left: 8px;
+  margin-right: 4px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  border: 1px solid rgba(179, 141, 255, 0.8);
+  font-size: 14px;
+  opacity: 1;
+  cursor: pointer;
+
+  box-shadow:
+    0 3px 8px rgba(179, 141, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: all 0.2s ease;
+}
+
+.tree-node-settings:hover {
+  transform: translateY(-1px) rotate(90deg);
+}
