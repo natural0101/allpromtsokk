@@ -391,27 +391,30 @@ async function updateTagFilter() {
     return;
   }
   
-  // Собираем уникальные теги из всех промптов, разбивая по запятой
-  const tags = new Set();
+  // Собираем уникальные теги и считаем количество промптов с каждым тегом
+  const tagCounts = new Map();
   allPrompts.forEach(prompt => {
     if (prompt.tags) {
       const promptTags = prompt.tags.split(',').map(t => t.trim()).filter(t => t);
-      promptTags.forEach(tag => tags.add(tag));
+      promptTags.forEach(tag => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
     }
   });
     
   const currentValue = tagFilter.value;
   tagFilter.innerHTML = '<option value="">Все теги</option>';
   
-  Array.from(tags).sort().forEach(tag => {
+  Array.from(tagCounts.keys()).sort().forEach(tag => {
     const option = document.createElement('option');
     option.value = tag;
-    option.textContent = tag;
+    const count = tagCounts.get(tag);
+    option.textContent = `${tag} (${count})`;
     tagFilter.appendChild(option);
   });
 
   // Восстанавливаем выбранное значение
-  if (currentValue && tags.has(currentValue)) {
+  if (currentValue && tagCounts.has(currentValue)) {
     tagFilter.value = currentValue;
   }
 }
@@ -449,9 +452,12 @@ function renderPromptItem(prompt) {
   const titleSpan = document.createElement('span');
   titleSpan.className = 'tree-node-title';
   titleSpan.setAttribute('data-action', 'select');
-  titleSpan.textContent = prompt.name || 'Без названия';
   titleSpan.style.display = 'block';
   titleSpan.style.marginBottom = '4px';
+  
+  // Подсветка совпадений в названии
+  const searchQuery = document.getElementById('searchInput')?.value.trim() || '';
+  titleSpan.innerHTML = highlightText(prompt.name || 'Без названия', searchQuery);
     
   const metaDiv = document.createElement('div');
   metaDiv.style.fontSize = '11px';
@@ -461,9 +467,24 @@ function renderPromptItem(prompt) {
   metaDiv.style.flexWrap = 'wrap';
 
   if (prompt.tags) {
-    const tagsSpan = document.createElement('span');
-    tagsSpan.textContent = `🏷️ ${prompt.tags}`;
-    metaDiv.appendChild(tagsSpan);
+    const tagsArray = prompt.tags.split(',').map(t => t.trim()).filter(t => t);
+    tagsArray.forEach(tag => {
+      const tagChip = document.createElement('span');
+      tagChip.className = 'tag-chip';
+      tagChip.textContent = tag;
+      tagChip.style.cursor = 'pointer';
+      tagChip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tagFilter = document.getElementById('tagFilter');
+        if (tagFilter) {
+          tagFilter.value = tag;
+          const folder = document.getElementById('folderFilter')?.value || null;
+          const search = document.getElementById('searchInput')?.value.trim() || null;
+          loadPrompts(folder, search, tag);
+        }
+      });
+      metaDiv.appendChild(tagChip);
+    });
   }
 
   contentDiv.appendChild(titleSpan);
@@ -471,6 +492,12 @@ function renderPromptItem(prompt) {
 
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'tree-node-actions';
+
+  const duplicateBtn = document.createElement('button');
+  duplicateBtn.className = 'tree-node-action';
+  duplicateBtn.setAttribute('data-action', 'duplicate');
+  duplicateBtn.setAttribute('title', 'Дублировать');
+  duplicateBtn.textContent = '📋';
 
   const editBtn = document.createElement('button');
   editBtn.className = 'tree-node-action';
@@ -484,6 +511,7 @@ function renderPromptItem(prompt) {
   deleteBtn.setAttribute('title', 'Удалить');
   deleteBtn.textContent = '🗑️';
 
+  actionsDiv.appendChild(duplicateBtn);
   actionsDiv.appendChild(editBtn);
   actionsDiv.appendChild(deleteBtn);
 
@@ -535,27 +563,86 @@ function renderEditor(prompt) {
 
 function renderViewMode(prompt) {
   const container = document.getElementById('editorContent');
-        container.innerHTML = `
+  
+  // Формируем HTML для тегов-чипов
+  let tagsHtml = '';
+  if (prompt.tags) {
+    const tagsArray = prompt.tags.split(',').map(t => t.trim()).filter(t => t);
+    tagsHtml = tagsArray.map(tag => 
+      `<span class="tag-chip" data-tag="${escapeHtml(tag)}" style="cursor: pointer;">${escapeHtml(tag)}</span>`
+    ).join('');
+  }
+  
+  container.innerHTML = `
     <div class="editor-header">
       <div style="flex: 1;">
-        <h2 style="font-size: 22px; font-weight: 600; margin: 0; color: var(--brandInk);">${escapeHtml(prompt.name || 'Без названия')}</h2>
-        <div style="display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: rgba(58, 42, 79, 0.6);">
+        <h2 style="font-size: 22px; font-weight: 600; margin: 0; color: var(--brandInk);">${highlightText(prompt.name || 'Без названия', document.getElementById('searchInput')?.value.trim() || '')}</h2>
+        <div style="display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: rgba(58, 42, 79, 0.6); align-items: center; flex-wrap: wrap;">
           ${prompt.folder ? `<span>📁 ${escapeHtml(prompt.folder)}</span>` : ''}
-          ${prompt.tags ? `<span>🏷️ ${escapeHtml(prompt.tags)}</span>` : ''}
+          ${tagsHtml ? `<div style="display: flex; gap: 6px; flex-wrap: wrap;">${tagsHtml}</div>` : ''}
         </div>
       </div>
       <div class="editor-actions">
+        <button class="btn" id="copyTextBtn">Скопировать текст</button>
+        <button class="btn" id="duplicatePromptBtn">Дублировать</button>
         <button class="btn" id="editPromptBtn">Редактировать</button>
         <button class="btn btn-danger" id="deletePromptBtn">Удалить</button>
       </div>
     </div>
     <div class="editor-body">
-      <div style="white-space: pre-wrap; line-height: 1.7; color: var(--brandInk);">${escapeHtml(prompt.text || '')}</div>
+      <div style="white-space: pre-wrap; line-height: 1.7; color: var(--brandInk);">${highlightText(prompt.text || '', document.getElementById('searchInput')?.value.trim() || '')}</div>
           </div>
         `;
   
+  // Добавляем обработчики клика на чипы тегов
+  container.querySelectorAll('.tag-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const tag = chip.dataset.tag;
+      const tagFilter = document.getElementById('tagFilter');
+      if (tagFilter) {
+        tagFilter.value = tag;
+        const folder = document.getElementById('folderFilter')?.value || null;
+        const search = document.getElementById('searchInput')?.value.trim() || null;
+        loadPrompts(folder, search, tag);
+      }
+    });
+  });
+  
+  const copyBtn = document.getElementById('copyTextBtn');
+  const duplicateBtn = document.getElementById('duplicatePromptBtn');
   const editBtn = document.getElementById('editPromptBtn');
   const deleteBtn = document.getElementById('deletePromptBtn');
+
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(prompt.text || '');
+        showToast('Скопировано');
+      } catch (error) {
+        console.error('Ошибка копирования:', error);
+        // Fallback для старых браузеров
+        const textArea = document.createElement('textarea');
+        textArea.value = prompt.text || '';
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          showToast('Скопировано');
+        } catch (err) {
+          console.error('Ошибка копирования (fallback):', err);
+        }
+        document.body.removeChild(textArea);
+      }
+    });
+  }
+
+  if (duplicateBtn) {
+    duplicateBtn.addEventListener('click', async () => {
+      await handleDuplicatePrompt(prompt.slug);
+    });
+  }
 
   if (editBtn) {
     editBtn.addEventListener('click', () => {
@@ -816,6 +903,9 @@ function setupPromptsListEvents() {
         return;
       }
       await loadPrompt(slug);
+    } else if (action === 'duplicate') {
+      e.stopPropagation();
+      await handleDuplicatePrompt(slug);
     } else if (action === 'edit') {
       e.stopPropagation();
       // Проверяем несохранённые изменения перед редактированием
@@ -896,6 +986,37 @@ async function handleSavePrompt(slug = null) {
   } catch (error) {
     console.error('Ошибка сохранения промпта:', error);
     alert('Ошибка сохранения промпта. Проверьте консоль для деталей.');
+  }
+}
+
+async function handleDuplicatePrompt(slug) {
+  try {
+    const prompt = prompts.find(p => p.slug === slug);
+    if (!prompt) {
+      alert('Промпт не найден');
+      return;
+    }
+
+    const data = {
+      name: `${prompt.name} (копия)`,
+      text: prompt.text,
+      folder: prompt.folder || null,
+      tags: prompt.tags || null,
+    };
+
+    const duplicatedPrompt = await createPrompt(data);
+    
+    // Обновить список
+    const folder = document.getElementById('folderFilter')?.value || null;
+    const search = document.getElementById('searchInput')?.value.trim() || null;
+    const tag = document.getElementById('tagFilter')?.value || null;
+    await loadPrompts(folder, search, tag);
+    
+    // Открыть дублированный промпт
+    await loadPrompt(duplicatedPrompt.slug);
+  } catch (error) {
+    console.error('Ошибка дублирования промпта:', error);
+    alert('Ошибка дублирования промпта. Проверьте консоль для деталей.');
   }
 }
 
@@ -983,6 +1104,33 @@ function setupSearch() {
   const folderFilter = document.getElementById('folderFilter');
   const tagFilter = document.getElementById('tagFilter');
   
+  // Восстанавливаем сохраненные фильтры
+  try {
+    const savedSearch = localStorage.getItem('promptSearch');
+    const savedFolder = localStorage.getItem('promptFolder');
+    const savedTag = localStorage.getItem('promptTag');
+    
+    if (savedSearch && searchInput) {
+      searchInput.value = savedSearch;
+    }
+    if (savedFolder && folderFilter) {
+      folderFilter.value = savedFolder;
+    }
+    if (savedTag && tagFilter) {
+      tagFilter.value = savedTag;
+    }
+    
+    // Загружаем промпты с восстановленными фильтрами
+    if (savedSearch || savedFolder || savedTag) {
+      const search = savedSearch || null;
+      const folder = savedFolder || null;
+      const tag = savedTag || null;
+      loadPrompts(folder, search, tag);
+    }
+  } catch (error) {
+    console.error('Ошибка восстановления фильтров:', error);
+  }
+  
   if (searchInput) {
     let searchTimeout = null;
     searchInput.addEventListener('input', (e) => {
@@ -991,6 +1139,18 @@ function setupSearch() {
         const search = e.target.value.trim() || null;
         const folder = folderFilter?.value || null;
         const tag = tagFilter?.value || null;
+        
+        // Сохраняем в localStorage
+        try {
+          if (search) {
+            localStorage.setItem('promptSearch', search);
+          } else {
+            localStorage.removeItem('promptSearch');
+          }
+        } catch (error) {
+          console.error('Ошибка сохранения поиска:', error);
+        }
+        
         loadPrompts(folder, search, tag);
       }, 300);
     });
@@ -1001,6 +1161,18 @@ function setupSearch() {
       const folder = e.target.value || null;
       const search = searchInput?.value.trim() || null;
       const tag = tagFilter?.value || null;
+      
+      // Сохраняем в localStorage
+      try {
+        if (folder) {
+          localStorage.setItem('promptFolder', folder);
+        } else {
+          localStorage.removeItem('promptFolder');
+        }
+      } catch (error) {
+        console.error('Ошибка сохранения папки:', error);
+      }
+      
       loadPrompts(folder, search, tag);
     });
   }
@@ -1010,6 +1182,18 @@ function setupSearch() {
       const tag = e.target.value || null;
       const folder = folderFilter?.value || null;
       const search = searchInput?.value.trim() || null;
+      
+      // Сохраняем в localStorage
+      try {
+        if (tag) {
+          localStorage.setItem('promptTag', tag);
+        } else {
+          localStorage.removeItem('promptTag');
+        }
+      } catch (error) {
+        console.error('Ошибка сохранения тега:', error);
+      }
+      
       loadPrompts(folder, search, tag);
     });
   }
@@ -1022,6 +1206,45 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function highlightText(text, searchQuery) {
+  if (!searchQuery || !text) return escapeHtml(text);
+  const query = searchQuery.trim();
+  if (!query) return escapeHtml(text);
+  
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const highlighted = escapeHtml(text).replace(regex, '<mark>$1</mark>');
+  return highlighted;
+}
+
+function showToast(message) {
+  // Удаляем существующий тост, если есть
+  const existingToast = document.getElementById('toast');
+  if (existingToast) {
+    existingToast.remove();
+  }
+  
+  const toast = document.createElement('div');
+  toast.id = 'toast';
+  toast.className = 'toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  // Показываем тост
+  setTimeout(() => {
+    toast.classList.add('show');
+  }, 10);
+  
+  // Скрываем и удаляем тост через 2 секунды
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
+  }, 2000);
 }
 
 // ---------- VERSION ----------
