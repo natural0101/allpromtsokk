@@ -460,10 +460,10 @@ function renderPromptItem(prompt) {
   titleSpan.innerHTML = highlightText(prompt.name || 'Без названия', searchQuery);
     
   const metaDiv = document.createElement('div');
-  metaDiv.style.fontSize = '11px';
+  metaDiv.style.fontSize = '8px';
   metaDiv.style.color = 'rgba(58, 42, 79, 0.6)';
   metaDiv.style.display = 'flex';
-  metaDiv.style.gap = '8px';
+  metaDiv.style.gap = '6px';
   metaDiv.style.flexWrap = 'wrap';
 
   if (prompt.tags) {

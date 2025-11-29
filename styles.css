@@ -12,12 +12,12 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   color: var(--brandInk);
   min-height: 100vh;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--brandLavenderLight) 0%, var(--brandLavender) 100%);
+  background: linear-gradient(135deg, #e1cffd 0%, #c5b3f0 30%, #b8d4f0 60%, #a8c5e8 100%);
   background-attachment: fixed;
   position: relative;
 }
@@ -62,13 +62,40 @@ body::before {
 
 /* Glassmorphism эффект */
 .glass {
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 
-    0 8px 32px 0 rgba(179, 141, 255, 0.15),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+    0 8px 32px 0 rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.2);
+  position: relative;
+}
+
+.glass::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  pointer-events: none;
+}
+
+/* Логотип */
+.app-logo {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
+  z-index: 10000;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
+  letter-spacing: -0.5px;
 }
 
 /* Левая панель */
@@ -77,17 +104,18 @@ body::before {
   min-width: 280px;
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
+  border-radius: 18px;
   overflow: hidden;
 }
 
 .sidebar-header {
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
 }
 
 .sidebar-header h1 {
@@ -103,15 +131,18 @@ body::before {
 }
 
 .btn-icon {
-  background: rgba(255, 255, 255, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   color: var(--brandInk);
   cursor: pointer;
   padding: 6px 10px;
-  border-radius: 12px;
+  border-radius: 16px;
   font-size: 16px;
   transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .btn-icon:hover {
@@ -143,7 +174,7 @@ body::before {
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
-  border-radius: 14px;
+  border-radius: 16px;
 }
 
 .tree-node-item:hover {
@@ -229,7 +260,25 @@ body::before {
   margin-right: 8px;
   font-size: 16px;
   flex-shrink: 0;
+  opacity: 0.7;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+/* Стиль для папок - футуристичный glass */
+.tree-node-item[data-action="toggle-folder"] .tree-node-icon {
+  opacity: 0.6;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+}
+
+.tree-node-item[data-action="toggle-folder"] {
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tree-node-item[data-action="toggle-folder"]:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
 }
 
 .tree-node-title {
@@ -237,9 +286,21 @@ body::before {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--brandInk);
-  font-weight: 500;
+  font-weight: 600;
+}
+
+/* Стиль для промптов - прозрачная карточка */
+.tree-node[data-slug] .tree-node-item {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(20px);
+}
+
+.tree-node[data-slug] .tree-node-item:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .tree-node-actions {
@@ -284,7 +345,7 @@ body::before {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
-  border-radius: 24px;
+  border-radius: 18px;
 }
 
 .editor-content {
@@ -306,11 +367,12 @@ body::before {
 
 .editor-header {
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   gap: 16px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
 }
 
 .editor-title-input {
@@ -339,15 +401,18 @@ body::before {
 
 .btn {
   padding: 8px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.2);
   color: var(--brandInk);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .btn:hover {
@@ -415,16 +480,17 @@ body::before {
 }
 
 .modal {
-  background: rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 18px;
   padding: 32px;
   min-width: 400px;
   max-width: 90vw;
   box-shadow: 
-    0 20px 60px rgba(179, 141, 255, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    0 20px 60px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .modal-header {
@@ -441,20 +507,25 @@ body::before {
 .modal-input {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
   font-size: 14px;
   outline: none;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.2);
   color: var(--brandInk);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
   transition: all 0.2s;
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .modal-input:focus {
-  background: rgba(255, 255, 255, 0.5);
-  border-color: var(--brandLavenderDeep);
-  box-shadow: 0 0 0 3px rgba(179, 141, 255, 0.2);
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 
+    0 0 0 3px rgba(179, 141, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .modal-footer {
@@ -524,7 +595,7 @@ body::before {
   
   .sidebar,
   .editor {
-    border-radius: 20px;
+    border-radius: 16px;
   }
   
   .editor-header {
@@ -552,21 +623,22 @@ body::before {
 /* Теги-чипы */
 .tag-chip {
   display: inline-block;
-  padding: 4px 10px;
-  background: rgba(179, 141, 255, 0.2);
-  border: 1px solid rgba(179, 141, 255, 0.3);
+  padding: 3px 10px;
+  background: rgba(179, 141, 255, 0.12);
+  border: 1px solid rgba(179, 141, 255, 0.2);
   border-radius: 12px;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--brandInk);
   transition: all 0.2s ease;
   backdrop-filter: blur(5px);
+  line-height: 1.4;
 }
 
 .tag-chip:hover {
-  background: rgba(179, 141, 255, 0.3);
-  border-color: rgba(179, 141, 255, 0.5);
+  background: rgba(179, 141, 255, 0.2);
+  border-color: rgba(179, 141, 255, 0.35);
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(179, 141, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(179, 141, 255, 0.15);
 }
 
 /* Тосты */
