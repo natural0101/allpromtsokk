@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from .models import Prompt
+from .models import Prompt, PromptVersion
 from .schemas import PromptCreate, PromptUpdate
 from .utils import slugify
 
@@ -41,7 +41,7 @@ def _generate_unique_slug(db: Session, base_slug: str) -> str:
     return slug
 
 
-def create_prompt(db: Session, data: PromptCreate) -> Prompt:
+def create_prompt(db: Session, data: PromptCreate, user_id: int | None = None) -> Prompt:
     base_slug = slugify(data.slug) if data.slug else slugify(data.name)
     unique_slug = _generate_unique_slug(db, base_slug)
 
@@ -56,10 +56,14 @@ def create_prompt(db: Session, data: PromptCreate) -> Prompt:
     db.add(db_prompt)
     db.commit()
     db.refresh(db_prompt)
+    
+    # Создаем первую версию
+    create_prompt_version(db, db_prompt, user_id)
+    
     return db_prompt
 
 
-def update_prompt(db: Session, slug: str, data: PromptUpdate) -> Optional[Prompt]:
+def update_prompt(db: Session, slug: str, data: PromptUpdate, user_id: int | None = None) -> Optional[Prompt]:
     db_prompt = get_prompt_by_slug(db, slug)
     if not db_prompt:
         return None
@@ -70,6 +74,10 @@ def update_prompt(db: Session, slug: str, data: PromptUpdate) -> Optional[Prompt
 
     db.commit()
     db.refresh(db_prompt)
+    
+    # Создаем новую версию после обновления
+    create_prompt_version(db, db_prompt, user_id)
+    
     return db_prompt
 
 
@@ -82,5 +90,29 @@ def delete_prompt(db: Session, slug: str) -> bool:
     db.commit()
     return True
 
+
+def create_prompt_version(db: Session, prompt: Prompt, user_id: int | None) -> PromptVersion:
+    """
+    Создает новую версию промпта.
+    """
+    last_version = (
+        db.query(PromptVersion)
+        .filter(PromptVersion.prompt_id == prompt.id)
+        .order_by(PromptVersion.version.desc())
+        .first()
+    )
+    next_version = (last_version.version + 1) if last_version else 1
+
+    version = PromptVersion(
+        prompt_id=prompt.id,
+        version=next_version,
+        title=prompt.name,
+        content=prompt.text,
+        updated_by_user_id=user_id,
+    )
+    db.add(version)
+    db.commit()
+    db.refresh(version)
+    return version
 
 

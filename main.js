@@ -157,6 +157,127 @@ async function deletePrompt(slug) {
   }
 }
 
+async function fetchPromptVersions(promptId) {
+  try {
+    const response = await fetch(`${API_BASE}/prompts/${promptId}/versions`, {
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        showLoginScreen();
+        return null;
+      }
+      if (response.status === 403) {
+        return null;
+      }
+      if (response.status === 404) return null;
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Ошибка загрузки версий:', error);
+    throw error;
+  }
+}
+
+async function fetchPromptVersion(promptId, versionId) {
+  try {
+    const response = await fetch(`${API_BASE}/prompts/${promptId}/versions/${versionId}`, {
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        showLoginScreen();
+        return null;
+      }
+      if (response.status === 403) {
+        return null;
+      }
+      if (response.status === 404) return null;
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Ошибка загрузки версии:', error);
+    throw error;
+  }
+}
+
+async function loadPromptVersions(promptId) {
+  const historyList = document.getElementById('historyList');
+  const historyView = document.getElementById('historyView');
+  
+  if (!historyList || !historyView) return;
+  
+  try {
+    historyList.innerHTML = '<div style="padding: 16px; color: rgba(58, 42, 79, 0.6);">Загрузка...</div>';
+    historyView.innerHTML = '';
+    
+    const versions = await fetchPromptVersions(promptId);
+    
+    if (!versions || versions.length === 0) {
+      historyList.innerHTML = '<div style="padding: 16px; color: rgba(58, 42, 79, 0.6);">Нет версий</div>';
+      return;
+    }
+    
+    // Рендерим список версий
+    historyList.innerHTML = versions.map(version => {
+      const date = new Date(version.created_at);
+      const dateStr = date.toLocaleString('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const userId = version.updated_by_user_id ? `ID: ${version.updated_by_user_id}` : 'Неизвестно';
+      
+      return `
+        <div class="history-item" data-version-id="${version.id}">
+          <div class="history-item-header">
+            <span class="history-version">Версия ${version.version}</span>
+            <span class="history-date">${dateStr}</span>
+          </div>
+          <div class="history-item-meta">${userId}</div>
+        </div>
+      `;
+    }).join('');
+    
+    // Добавляем обработчики клика
+    historyList.querySelectorAll('.history-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        // Убираем активность с других элементов
+        historyList.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        
+        const versionId = parseInt(item.dataset.versionId);
+        const version = await fetchPromptVersion(promptId, versionId);
+        
+        if (version) {
+          historyView.innerHTML = `
+            <div class="history-view-header">
+              <h3>Версия ${version.version}</h3>
+              <div style="font-size: 12px; color: rgba(58, 42, 79, 0.6); margin-top: 4px;">
+                ${new Date(version.created_at).toLocaleString('ru-RU')}
+              </div>
+            </div>
+            <div class="markdown-content">${renderMarkdown(version.content || '')}</div>
+          `;
+        }
+      });
+    });
+    
+    // Автоматически выбираем первую версию
+    const firstItem = historyList.querySelector('.history-item');
+    if (firstItem) {
+      firstItem.click();
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки версий:', error);
+    historyList.innerHTML = '<div style="padding: 16px; color: #ef4444;">Ошибка загрузки версий</div>';
+  }
+}
+
 // ---------- DATA LOADING ----------
 
 async function loadPrompts(folder = null, search = null, tag = null) {
@@ -710,8 +831,20 @@ function renderViewMode(prompt) {
         <button class="btn btn-danger" id="deletePromptBtn" style="display: none;">Удалить</button>
       </div>
     </div>
+    <div class="editor-tabs">
+      <button class="editor-tab active" data-tab="text">Текст</button>
+      <button class="editor-tab" data-tab="history">История</button>
+    </div>
     <div class="editor-body">
-      <div class="markdown-content">${renderMarkdown(prompt.text || '')}</div>
+      <div id="textTabContent" class="tab-content active">
+        <div class="markdown-content">${renderMarkdown(prompt.text || '')}</div>
+      </div>
+      <div id="historyTabContent" class="tab-content">
+        <div class="history-container">
+          <div class="history-list" id="historyList"></div>
+          <div class="history-view" id="historyView"></div>
+        </div>
+      </div>
     </div>
         `;
   
@@ -792,6 +925,29 @@ function renderViewMode(prompt) {
       if (confirmed) {
         await handleDeletePrompt(prompt.slug);
       }
+    });
+  }
+  
+  // Настройка табов
+  const textTab = container.querySelector('[data-tab="text"]');
+  const historyTab = container.querySelector('[data-tab="history"]');
+  const textTabContent = document.getElementById('textTabContent');
+  const historyTabContent = document.getElementById('historyTabContent');
+  
+  if (textTab && historyTab) {
+    textTab.addEventListener('click', () => {
+      textTab.classList.add('active');
+      historyTab.classList.remove('active');
+      textTabContent?.classList.add('active');
+      historyTabContent?.classList.remove('active');
+    });
+    
+    historyTab.addEventListener('click', () => {
+      historyTab.classList.add('active');
+      textTab.classList.remove('active');
+      historyTabContent?.classList.add('active');
+      textTabContent?.classList.remove('active');
+      loadPromptVersions(prompt.id);
     });
   }
 }

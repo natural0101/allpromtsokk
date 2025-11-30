@@ -50,4 +50,16 @@ class Prompt(Base):
     )
 
 
+class PromptVersion(Base):
+    __tablename__ = "prompt_versions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    prompt_id = Column(Integer, ForeignKey("prompts.id"), index=True, nullable=False)
+    version = Column(Integer, nullable=False)  # 1,2,3...
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
 

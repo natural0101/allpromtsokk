@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from . import crud
 from .db import Base, engine, get_db
 from .middleware import AuthMiddleware
-from .models import User
+from .models import User, PromptVersion
 from .routers import auth, admin
-from .schemas import PromptCreate, PromptOut, PromptUpdate
+from .schemas import PromptCreate, PromptOut, PromptUpdate, PromptVersionBase, PromptVersionDetail
 
 # Загружаем переменные окружения из .env
 load_dotenv()
@@ -167,7 +167,7 @@ def create_prompt(
     db: Session = Depends(get_db),
     editor_user: User = Depends(get_prompt_editor_user),
 ):
-    prompt = crud.create_prompt(db=db, data=payload)
+    prompt = crud.create_prompt(db=db, data=payload, user_id=editor_user.id)
     return prompt
 
 
@@ -178,7 +178,7 @@ def update_prompt(
     db: Session = Depends(get_db),
     editor_user: User = Depends(get_prompt_editor_user),
 ):
-    prompt = crud.update_prompt(db=db, slug=slug, data=payload)
+    prompt = crud.update_prompt(db=db, slug=slug, data=payload, user_id=editor_user.id)
     if not prompt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     return prompt
@@ -194,6 +194,38 @@ def delete_prompt(
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     return None
+
+
+@app.get("/api/prompts/{prompt_id}/versions", response_model=List[PromptVersionBase])
+def get_prompt_versions(
+    prompt_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_active_user),
+):
+    versions = (
+        db.query(PromptVersion)
+        .filter(PromptVersion.prompt_id == prompt_id)
+        .order_by(PromptVersion.version.desc())
+        .all()
+    )
+    return versions
+
+
+@app.get("/api/prompts/{prompt_id}/versions/{version_id}", response_model=PromptVersionDetail)
+def get_prompt_version(
+    prompt_id: int,
+    version_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_active_user),
+):
+    version = (
+        db.query(PromptVersion)
+        .filter(PromptVersion.prompt_id == prompt_id, PromptVersion.id == version_id)
+        .first()
+    )
+    if not version:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+    return version
 
 
 

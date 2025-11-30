@@ -1261,3 +1261,116 @@ mark {
 .md-toolbar button:hover {
   background: rgba(255, 255, 255, 0.32);
 }
+
+/* Editor Tabs */
+.editor-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 16px;
+}
+
+.editor-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(58, 42, 79, 0.6);
+  transition: 0.15s;
+}
+
+.editor-tab:hover {
+  color: var(--brandInk);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.editor-tab.active {
+  color: var(--brandInk);
+  border-bottom-color: var(--brandInk);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* History */
+.history-container {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+}
+
+.history-list {
+  width: 300px;
+  max-height: 600px;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  padding-right: 16px;
+}
+
+.history-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.15s;
+  border: 1px solid transparent;
+}
+
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.history-item.active {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: rgba(124, 58, 237, 0.3);
+}
+
+.history-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.history-version {
+  font-weight: 600;
+  color: var(--brandInk);
+  font-size: 14px;
+}
+
+.history-date {
+  font-size: 12px;
+  color: rgba(58, 42, 79, 0.6);
+}
+
+.history-item-meta {
+  font-size: 11px;
+  color: rgba(58, 42, 79, 0.5);
+}
+
+.history-view {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.history-view-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.history-view-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--brandInk);
+}

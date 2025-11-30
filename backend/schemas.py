@@ -80,4 +80,22 @@ class PromptOut(PromptBase):
         from_attributes = True
 
 
+class PromptVersionBase(BaseModel):
+    id: int
+    version: int
+    title: str
+    created_at: datetime
+    updated_by_user_id: int | None
+
+    class Config:
+        from_attributes = True
+
+
+class PromptVersionDetail(PromptVersionBase):
+    content: str
+
+    class Config:
+        from_attributes = True
+
+
 
