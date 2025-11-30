@@ -735,12 +735,13 @@ function renderViewMode(prompt) {
   const deleteBtn = document.getElementById('deletePromptBtn');
 
   // Обновляем видимость кнопок редактирования/удаления в зависимости от прав
-  const isAdmin = currentUser && currentUser.access_level === 'admin';
+  // Пользователь может редактировать промпты, если он admin или tech
+  const canEditPrompts = currentUser && (currentUser.access_level === 'admin' || currentUser.access_level === 'tech');
   if (editBtn) {
-    editBtn.style.display = isAdmin ? 'block' : 'none';
+    editBtn.style.display = canEditPrompts ? 'block' : 'none';
   }
   if (deleteBtn) {
-    deleteBtn.style.display = isAdmin ? 'block' : 'none';
+    deleteBtn.style.display = canEditPrompts ? 'block' : 'none';
   }
 
   if (copyBtn) {
@@ -1587,15 +1588,19 @@ let currentUser = null; // Храним данные текущего польз
  * Обновляет видимость элементов UI в зависимости от прав пользователя
  */
 function updateUIPermissions() {
+  // Пользователь может редактировать промпты, если он admin или tech
+  const canEditPrompts = currentUser && (currentUser.access_level === 'admin' || currentUser.access_level === 'tech');
+  
+  // Пользователь является администратором (только для админ-панели)
   const isAdmin = currentUser && currentUser.access_level === 'admin';
   
   // Кнопка "Создать промпт"
   const newPromptBtn = document.getElementById('newPromptBtn');
   if (newPromptBtn) {
-    newPromptBtn.style.display = isAdmin ? 'block' : 'none';
+    newPromptBtn.style.display = canEditPrompts ? 'block' : 'none';
   }
   
-  // Кнопка админ-панели пользователей
+  // Кнопка админ-панели пользователей (только для admin)
   const adminUsersBtn = document.getElementById('adminUsersBtn');
   if (adminUsersBtn) {
     adminUsersBtn.style.display = isAdmin ? 'block' : 'none';
@@ -1605,10 +1610,10 @@ function updateUIPermissions() {
   const editPromptBtn = document.getElementById('editPromptBtn');
   const deletePromptBtn = document.getElementById('deletePromptBtn');
   if (editPromptBtn) {
-    editPromptBtn.style.display = isAdmin ? 'block' : 'none';
+    editPromptBtn.style.display = canEditPrompts ? 'block' : 'none';
   }
   if (deletePromptBtn) {
-    deletePromptBtn.style.display = isAdmin ? 'block' : 'none';
+    deletePromptBtn.style.display = canEditPrompts ? 'block' : 'none';
   }
 }
 
