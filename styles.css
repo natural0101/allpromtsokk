@@ -87,15 +87,22 @@ body::before {
 /* Логотип */
 .app-logo {
   position: fixed;
-  top: 24px;
-  left: 24px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  font-size: 32px;
-  font-weight: 600;
-  color: #1a1a1a;
+  top: 20px;
+  left: 20px;
   z-index: 10000;
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
-  letter-spacing: -0.8px;
+}
+
+.app-logo-img {
+  height: 48px;
+  width: auto;
+  display: block;
+  opacity: 0.95;
+}
+
+/* Логотип на логин-экране чуть крупнее */
+.login-header .app-logo-img {
+  height: 64px;
+  margin-bottom: 8px;
 }
 
 /* Экран логина */
@@ -130,16 +137,6 @@ body::before {
 
 .login-header {
   margin-bottom: 32px;
-}
-
-.app-logo-login {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  font-size: 42px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 12px;
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
-  letter-spacing: -0.8px;
 }
 
 .login-subtitle {
