@@ -508,15 +508,24 @@ body::before {
   flex: 1;
   padding: 24px;
   overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  min-height: 0;
+}
+
+/* Контейнер для Markdown-контента при просмотре */
+.editor-body .markdown-content {
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .editor-textarea {
   width: 100%;
-  height: 100%;
+  min-height: 300px;
+  max-height: calc(100vh - 300px);
   border: none;
   outline: none;
-  resize: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  resize: vertical;
+  font-family: Consolas, Menlo, Monaco, monospace;
   font-size: 15px;
   line-height: 1.7;
   color: var(--brandInk);
@@ -524,6 +533,7 @@ body::before {
   padding: 12px;
   border-radius: 12px;
   transition: all 0.2s;
+  overflow-y: auto;
 }
 
 .editor-textarea:focus {
@@ -1139,4 +1149,95 @@ mark {
 
 .tree-node-settings:hover {
   transform: translateY(-1px) rotate(90deg);
+}
+
+/* Стили для Markdown-контента */
+.markdown-content {
+  color: var(--brandInk);
+  line-height: 1.7;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  color: var(--brandInk);
+}
+
+.markdown-content h1 {
+  font-size: 2em;
+  border-bottom: 2px solid rgba(58, 42, 79, 0.2);
+  padding-bottom: 0.3em;
+}
+
+.markdown-content h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid rgba(58, 42, 79, 0.15);
+  padding-bottom: 0.3em;
+}
+
+.markdown-content h3 {
+  font-size: 1.25em;
+}
+
+.markdown-content p {
+  margin: 1em 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.markdown-content li {
+  margin: 0.5em 0;
+}
+
+.markdown-content code {
+  background: rgba(58, 42, 79, 0.1);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: Consolas, Menlo, Monaco, monospace;
+  font-size: 0.9em;
+}
+
+.markdown-content pre {
+  background: rgba(58, 42, 79, 0.1);
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid rgba(58, 42, 79, 0.3);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: rgba(58, 42, 79, 0.8);
+  font-style: italic;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+}
+
+.markdown-content em {
+  font-style: italic;
+}
+
+.markdown-content a {
+  color: var(--brandLavenderDeep);
+  text-decoration: underline;
+}
+
+.markdown-content a:hover {
+  color: var(--brandInk);
 }

@@ -711,8 +711,8 @@ function renderViewMode(prompt) {
       </div>
     </div>
     <div class="editor-body">
-      <div style="white-space: pre-wrap; line-height: 1.7; color: var(--brandInk);">${highlightText(prompt.text || '', document.getElementById('searchInput')?.value.trim() || '')}</div>
-          </div>
+      <div class="markdown-content">${renderMarkdown(prompt.text || '')}</div>
+    </div>
         `;
   
   // Добавляем обработчики клика на чипы тегов
@@ -796,10 +796,14 @@ function renderViewMode(prompt) {
   }
 }
 
-// Функция авто-увеличения высоты textarea
+// Функция авто-увеличения высоты textarea (с ограничением максимальной высоты)
 function autoResizeTextarea(textarea) {
+  if (!textarea) return;
   textarea.style.height = 'auto';
-  textarea.style.height = Math.max(300, textarea.scrollHeight) + 'px';
+  const maxHeight = Math.min(window.innerHeight - 300, 800); // Максимальная высота
+  const newHeight = Math.max(300, Math.min(textarea.scrollHeight, maxHeight));
+  textarea.style.height = newHeight + 'px';
+  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
 }
 
 // Проверка наличия несохранённых изменений
@@ -880,9 +884,8 @@ function renderEditForm(prompt = null) {
           <textarea 
             id="promptTextInput"
             class="editor-textarea"
-            placeholder="Текст промпта..."
+            placeholder="Текст промпта (Markdown)..."
             required
-            style="min-height: 300px; resize: vertical; overflow-y: auto; font-family: Consolas, Menlo, Monaco, monospace;"
           >${prompt ? escapeHtml(prompt.text) : ''}</textarea>
         </div>
         <div>
@@ -1567,6 +1570,35 @@ function showDeleteConfirm(message) {
       document.head.appendChild(style);
     }
   });
+}
+
+// ---------- MARKDOWN RENDERING ----------
+
+/**
+ * Рендерит Markdown-текст в HTML
+ * @param {string} markdown - Markdown-текст
+ * @returns {string} - HTML-строка
+ */
+function renderMarkdown(markdown) {
+  if (!markdown || typeof markdown !== 'string') {
+    return '';
+  }
+  
+  // Проверяем, что библиотека marked доступна
+  if (typeof marked === 'undefined') {
+    console.warn('Marked library not loaded, rendering as plain text');
+    return escapeHtml(markdown).replace(/\n/g, '<br>');
+  }
+  
+  try {
+    // Используем marked для парсинга Markdown
+    // marked.parse() автоматически экранирует HTML в тексте
+    return marked.parse(markdown);
+  } catch (error) {
+    console.error('Error rendering markdown:', error);
+    // В случае ошибки возвращаем экранированный текст
+    return escapeHtml(markdown).replace(/\n/g, '<br>');
+  }
 }
 
 // ---------- VERSION ----------
