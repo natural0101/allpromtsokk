@@ -114,6 +114,19 @@ def get_active_user(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def get_prompt_editor_user(current_user: User = Depends(get_active_user)) -> User:
+    """
+    Dependency для проверки, что пользователь может редактировать промпты.
+    Разрешает доступ для access_level в ("admin", "tech").
+    """
+    if current_user.access_level not in ("admin", "tech"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Editor access required. Only admin and tech users can modify prompts."
+        )
+    return current_user
+
+
 def get_admin_user(current_user: User = Depends(get_active_user)) -> User:
     """
     Dependency для проверки, что пользователь является администратором.
@@ -152,7 +165,7 @@ def get_prompt(
 def create_prompt(
     payload: PromptCreate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(get_admin_user),
+    editor_user: User = Depends(get_prompt_editor_user),
 ):
     prompt = crud.create_prompt(db=db, data=payload)
     return prompt
@@ -163,7 +176,7 @@ def update_prompt(
     slug: str,
     payload: PromptUpdate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(get_admin_user),
+    editor_user: User = Depends(get_prompt_editor_user),
 ):
     prompt = crud.update_prompt(db=db, slug=slug, data=payload)
     if not prompt:
@@ -175,7 +188,7 @@ def update_prompt(
 def delete_prompt(
     slug: str,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(get_admin_user),
+    editor_user: User = Depends(get_prompt_editor_user),
 ):
     deleted = crud.delete_prompt(db=db, slug=slug)
     if not deleted:
