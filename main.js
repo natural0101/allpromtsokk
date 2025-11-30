@@ -203,15 +203,23 @@ async function fetchPromptVersion(promptId, versionId) {
   }
 }
 
+// Храним выбранные версии для сравнения
+let selectedVersionIds = [];
+
 async function loadPromptVersions(promptId) {
   const historyList = document.getElementById('historyList');
   const historyView = document.getElementById('historyView');
+  const historyDiff = document.getElementById('historyDiff');
   
   if (!historyList || !historyView) return;
+  
+  // Сбрасываем выбранные версии при загрузке
+  selectedVersionIds = [];
   
   try {
     historyList.innerHTML = '<div style="padding: 16px; color: rgba(58, 42, 79, 0.6);">Загрузка...</div>';
     historyView.innerHTML = '';
+    if (historyDiff) historyDiff.innerHTML = '';
     
     const versions = await fetchPromptVersions(promptId);
     
@@ -220,8 +228,18 @@ async function loadPromptVersions(promptId) {
       return;
     }
     
-    // Рендерим список версий
-    historyList.innerHTML = versions.map(version => {
+    // Добавляем контрол для выбора версий
+    const diffControl = `
+      <div class="history-diff-control">
+        <div style="margin-bottom: 12px; font-size: 13px; color: rgba(58, 42, 79, 0.7);">
+          Выберите две версии для сравнения
+        </div>
+        <button class="history-diff-button" id="showDiffBtn" disabled>Показать отличия</button>
+      </div>
+    `;
+    
+    // Рендерим список версий с чекбоксами
+    const versionsHtml = versions.map(version => {
       const date = new Date(version.created_at);
       const dateStr = date.toLocaleString('ru-RU', {
         year: 'numeric',
@@ -233,19 +251,66 @@ async function loadPromptVersions(promptId) {
       const userId = version.updated_by_user_id ? `ID: ${version.updated_by_user_id}` : 'Неизвестно';
       
       return `
-        <div class="history-item" data-version-id="${version.id}">
-          <div class="history-item-header">
-            <span class="history-version">Версия ${version.version}</span>
-            <span class="history-date">${dateStr}</span>
-          </div>
-          <div class="history-item-meta">${userId}</div>
+        <div class="history-item" data-version-id="${version.id}" data-version-number="${version.version}">
+          <label class="history-item-checkbox-label">
+            <input type="checkbox" class="history-item-checkbox" data-version-id="${version.id}" data-version-number="${version.version}">
+            <div class="history-item-content">
+              <div class="history-item-header">
+                <span class="history-version">Версия ${version.version}</span>
+                <span class="history-date">${dateStr}</span>
+              </div>
+              <div class="history-item-meta">${userId}</div>
+            </div>
+          </label>
         </div>
       `;
     }).join('');
     
-    // Добавляем обработчики клика
-    historyList.querySelectorAll('.history-item').forEach(item => {
-      item.addEventListener('click', async () => {
+    historyList.innerHTML = diffControl + versionsHtml;
+    
+    // Находим кнопку показа diff
+    const showDiffBtn = document.getElementById('showDiffBtn');
+    
+    // Добавляем обработчики для чекбоксов
+    historyList.querySelectorAll('.history-item-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const versionId = parseInt(checkbox.dataset.versionId);
+        
+        if (checkbox.checked) {
+          // Если уже выбрано 2 версии, не позволяем выбрать третью
+          if (selectedVersionIds.length >= 2) {
+            checkbox.checked = false;
+            return;
+          }
+          selectedVersionIds.push(versionId);
+        } else {
+          selectedVersionIds = selectedVersionIds.filter(id => id !== versionId);
+        }
+        
+        // Обновляем состояние кнопки
+        if (showDiffBtn) {
+          showDiffBtn.disabled = selectedVersionIds.length !== 2;
+        }
+      });
+    });
+    
+    // Обработчик кнопки "Показать отличия"
+    if (showDiffBtn) {
+      showDiffBtn.addEventListener('click', async () => {
+        if (selectedVersionIds.length !== 2) return;
+        
+        await showVersionDiff(promptId, selectedVersionIds[0], selectedVersionIds[1], versions);
+      });
+    }
+    
+    // Добавляем обработчики клика для просмотра одной версии (без чекбокса)
+    historyList.querySelectorAll('.history-item-content').forEach(content => {
+      content.addEventListener('click', async (e) => {
+        // Игнорируем клики на чекбокс
+        if (e.target.closest('.history-item-checkbox')) return;
+        
+        const item = content.closest('.history-item');
         // Убираем активность с других элементов
         historyList.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
         item.classList.add('active');
@@ -267,14 +332,78 @@ async function loadPromptVersions(promptId) {
       });
     });
     
-    // Автоматически выбираем первую версию
+    // Автоматически выбираем первую версию для просмотра
     const firstItem = historyList.querySelector('.history-item');
     if (firstItem) {
-      firstItem.click();
+      const firstContent = firstItem.querySelector('.history-item-content');
+      if (firstContent) {
+        firstContent.click();
+      }
     }
   } catch (error) {
     console.error('Ошибка загрузки версий:', error);
     historyList.innerHTML = '<div style="padding: 16px; color: #ef4444;">Ошибка загрузки версий</div>';
+  }
+}
+
+async function showVersionDiff(promptId, versionId1, versionId2, allVersions) {
+  const historyDiff = document.getElementById('historyDiff');
+  if (!historyDiff) return;
+  
+  try {
+    historyDiff.innerHTML = '<div style="padding: 16px; color: rgba(58, 42, 79, 0.6);">Загрузка версий...</div>';
+    
+    // Загружаем обе версии
+    const [version1, version2] = await Promise.all([
+      fetchPromptVersion(promptId, versionId1),
+      fetchPromptVersion(promptId, versionId2)
+    ]);
+    
+    if (!version1 || !version2) {
+      historyDiff.innerHTML = '<div style="padding: 16px; color: #ef4444;">Ошибка загрузки версий</div>';
+      return;
+    }
+    
+    // Определяем порядок: старая версия слева, новая справа
+    let oldVersion, newVersion;
+    if (version1.version < version2.version) {
+      oldVersion = version1;
+      newVersion = version2;
+    } else {
+      oldVersion = version2;
+      newVersion = version1;
+    }
+    
+    const oldStr = oldVersion.content || "";
+    const newStr = newVersion.content || "";
+    
+    // Проверяем, что библиотеки доступны
+    if (typeof Diff === 'undefined' || typeof Diff2Html === 'undefined') {
+      historyDiff.innerHTML = '<div style="padding: 16px; color: #ef4444;">Библиотеки для сравнения не загружены</div>';
+      return;
+    }
+    
+    // Создаем unified diff
+    const unifiedDiff = Diff.createTwoFilesPatch(
+      `v${oldVersion.version}`,
+      `v${newVersion.version}`,
+      oldStr,
+      newStr,
+      "",
+      ""
+    );
+    
+    // Конвертируем в HTML
+    const diffHtml = Diff2Html.html(unifiedDiff, {
+      drawFileList: false,
+      matching: 'lines',
+      outputFormat: 'line-by-line'
+    });
+    
+    historyDiff.innerHTML = diffHtml;
+  } catch (error) {
+    console.error('Ошибка генерации diff:', error);
+    historyDiff.innerHTML = '<div style="padding: 16px; color: #ef4444;">Ошибка генерации сравнения</div>';
   }
 }
 
@@ -844,6 +973,7 @@ function renderViewMode(prompt) {
           <div class="history-list" id="historyList"></div>
           <div class="history-view" id="historyView"></div>
         </div>
+        <div class="history-diff" id="historyDiff"></div>
       </div>
     </div>
         `;
