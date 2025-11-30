@@ -88,7 +88,8 @@ async function createPrompt(data) {
         throw new Error('Unauthorized');
       }
       if (response.status === 403) {
-        alert('Доступ запрещён. Только администраторы могут создавать промпты.');
+        // Доступ запрещён - кнопка не должна быть видна для не-админов, но на всякий случай
+        console.warn('Доступ запрещён: только администраторы могут создавать промпты');
         throw new Error('Forbidden');
       }
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -116,7 +117,8 @@ async function updatePrompt(slug, data) {
         return null;
       }
       if (response.status === 403) {
-        alert('Доступ запрещён. Только администраторы могут редактировать промпты.');
+        // Доступ запрещён - кнопка не должна быть видна для не-админов, но на всякий случай
+        console.warn('Доступ запрещён: только администраторы могут редактировать промпты');
         return null;
       }
       if (response.status === 404) return null;
@@ -141,7 +143,8 @@ async function deletePrompt(slug) {
         return false;
       }
       if (response.status === 403) {
-        alert('Доступ запрещён. Только администраторы могут удалять промпты.');
+        // Доступ запрещён - кнопка не должна быть видна для не-админов, но на всякий случай
+        console.warn('Доступ запрещён: только администраторы могут удалять промпты');
         return false;
       }
       if (response.status === 404) return false;
@@ -703,8 +706,8 @@ function renderViewMode(prompt) {
       <div class="editor-actions">
         <button class="btn" id="copyTextBtn">Скопировать текст</button>
         <button class="btn" id="duplicatePromptBtn">Дублировать</button>
-        <button class="btn" id="editPromptBtn">Редактировать</button>
-        <button class="btn btn-danger" id="deletePromptBtn">Удалить</button>
+        <button class="btn" id="editPromptBtn" style="display: none;">Редактировать</button>
+        <button class="btn btn-danger" id="deletePromptBtn" style="display: none;">Удалить</button>
       </div>
     </div>
     <div class="editor-body">
@@ -730,6 +733,15 @@ function renderViewMode(prompt) {
   const duplicateBtn = document.getElementById('duplicatePromptBtn');
   const editBtn = document.getElementById('editPromptBtn');
   const deleteBtn = document.getElementById('deletePromptBtn');
+
+  // Обновляем видимость кнопок редактирования/удаления в зависимости от прав
+  const isAdmin = currentUser && currentUser.access_level === 'admin';
+  if (editBtn) {
+    editBtn.style.display = isAdmin ? 'block' : 'none';
+  }
+  if (deleteBtn) {
+    deleteBtn.style.display = isAdmin ? 'block' : 'none';
+  }
 
   if (copyBtn) {
     copyBtn.addEventListener('click', async () => {
@@ -1571,6 +1583,35 @@ async function loadVersion() {
 
 let currentUser = null; // Храним данные текущего пользователя
 
+/**
+ * Обновляет видимость элементов UI в зависимости от прав пользователя
+ */
+function updateUIPermissions() {
+  const isAdmin = currentUser && currentUser.access_level === 'admin';
+  
+  // Кнопка "Создать промпт"
+  const newPromptBtn = document.getElementById('newPromptBtn');
+  if (newPromptBtn) {
+    newPromptBtn.style.display = isAdmin ? 'block' : 'none';
+  }
+  
+  // Кнопка админ-панели пользователей
+  const adminUsersBtn = document.getElementById('adminUsersBtn');
+  if (adminUsersBtn) {
+    adminUsersBtn.style.display = isAdmin ? 'block' : 'none';
+  }
+  
+  // Кнопки редактирования/удаления в карточке промпта
+  const editPromptBtn = document.getElementById('editPromptBtn');
+  const deletePromptBtn = document.getElementById('deletePromptBtn');
+  if (editPromptBtn) {
+    editPromptBtn.style.display = isAdmin ? 'block' : 'none';
+  }
+  if (deletePromptBtn) {
+    deletePromptBtn.style.display = isAdmin ? 'block' : 'none';
+  }
+}
+
 async function checkAuth() {
   try {
     // Проверяем авторизацию через эндпоинт /api/auth/me
@@ -1585,11 +1626,8 @@ async function checkAuth() {
       if (userData.status === 'active') {
         isAuthenticated = true;
         showMainApp();
-        // Показываем кнопку админ-панели только для admin
-        const adminBtn = document.getElementById('adminUsersBtn');
-        if (adminBtn && userData.access_level === 'admin') {
-          adminBtn.style.display = 'block';
-        }
+        // Обновляем видимость элементов UI в зависимости от прав
+        updateUIPermissions();
         return true;
       } else {
         // Пользователь залогинен, но статус не active
@@ -1678,9 +1716,13 @@ async function handleTelegramAuth(user) {
     const authData = await response.json();
     console.log('Авторизация успешна:', authData);
     
-    // Токен теперь в cookie (HttpOnly), не нужно сохранять в localStorage
+    // Сохраняем данные пользователя
+    currentUser = authData.user;
+    
     // Показываем основной интерфейс
     showMainApp();
+    // Обновляем видимость элементов UI в зависимости от прав
+    updateUIPermissions();
     await loadPrompts();
   } catch (error) {
     console.error('Ошибка авторизации:', error);
