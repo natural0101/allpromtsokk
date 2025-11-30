@@ -879,8 +879,8 @@ function renderEditForm(prompt = null) {
             required
           />
         </div>
-        <div>
-          <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--brandInk);">Текст *</label>
+        <div class="editor-field">
+          <label class="editor-label" style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--brandInk);">Текст *</label>
           <div class="md-toolbar">
             <button type="button" data-md="h1">H1</button>
             <button type="button" data-md="h2">H2</button>
@@ -1594,7 +1594,11 @@ function showDeleteConfirm(message) {
 function setupMarkdownToolbar(textarea) {
   if (!textarea) return;
   
-  const toolbar = document.querySelector('.md-toolbar');
+  // Ищем тулбар в том же контейнере, что и textarea (внутри формы)
+  const form = textarea.closest('form');
+  if (!form) return;
+  
+  const toolbar = form.querySelector('.md-toolbar');
   if (!toolbar) return;
   
   toolbar.querySelectorAll('button[data-md]').forEach(button => {
