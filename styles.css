@@ -1378,11 +1378,13 @@ mark {
 /* History Diff */
 .history-diff {
   margin-top: 12px;
-  max-height: 400px;
+  max-height: 500px;
   overflow: auto;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 12px 16px;
 }
 
 .history-diff-control {
@@ -1394,10 +1396,11 @@ mark {
 
 .history-diff-button {
   margin-top: 8px;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 6px 12px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
   cursor: pointer;
   font-size: 13px;
   color: var(--brandInk);
@@ -1405,12 +1408,147 @@ mark {
 }
 
 .history-diff-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .history-diff-button:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* Diff2Html Overrides */
+.history-diff .d2h-wrapper,
+.history-diff .d2h-file-wrapper,
+.history-diff .d2h-file-header {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.history-diff .d2h-file-header {
+  font-weight: 600;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 4px 0 8px 0;
+  padding: 0 !important;
+}
+
+.history-diff .d2h-file-name {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.history-diff .d2h-code-line {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.history-diff .d2h-code-line-ctn {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.history-diff .d2h-code-linenumber {
+  color: rgba(255, 255, 255, 0.35);
+  background: transparent !important;
+}
+
+.history-diff .d2h-ins {
+  background: rgba(0, 255, 0, 0.12) !important;
+}
+
+.history-diff .d2h-del {
+  background: rgba(255, 0, 0, 0.12) !important;
+}
+
+/* Скругления для первых/последних строк блоков изменений */
+.history-diff .d2h-code-line.d2h-ins:first-child {
+  border-radius: 8px 0 0 0;
+}
+
+.history-diff .d2h-code-line.d2h-ins:last-child {
+  border-radius: 0 0 8px 0;
+}
+
+.history-diff .d2h-code-line.d2h-del:first-child {
+  border-radius: 0 8px 0 0;
+}
+
+.history-diff .d2h-code-line.d2h-del:last-child {
+  border-radius: 0 0 0 8px;
+}
+
+/* Скругления для одиночных строк */
+.history-diff .d2h-code-line.d2h-ins:only-child {
+  border-radius: 8px 0 8px 0;
+}
+
+.history-diff .d2h-code-line.d2h-del:only-child {
+  border-radius: 0 8px 0 8px;
+}
+
+.history-diff .d2h-tag {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  padding: 2px 6px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.history-diff .d2h-code-line-renamed {
+  background: rgba(150, 150, 255, 0.15) !important;
+}
+
+.history-diff table {
+  background: transparent !important;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.history-diff table td {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.history-diff .d2h-code-side-line {
+  background: transparent !important;
+}
+
+.history-diff .d2h-code-side-emptyplaceholder {
+  background: transparent !important;
+}
+
+/* Убираем все белые фоны и тени */
+.history-diff .d2h-file-list-wrapper,
+.history-diff .d2h-file-list-header,
+.history-diff .d2h-file-list,
+.history-diff .d2h-file-list-line,
+.history-diff .d2h-code-line-prefix,
+.history-diff .d2h-code-line-prefix,
+.history-diff .d2h-code-linenumber,
+.history-diff .d2h-code-line-ctn {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Убираем границы */
+.history-diff .d2h-code-line,
+.history-diff .d2h-code-line-prefix,
+.history-diff .d2h-code-linenumber {
+  border: none !important;
+}
+
+/* Убираем отступы у обёрток */
+.history-diff .d2h-wrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.history-diff .d2h-file-wrapper {
+  margin: 0 0 16px 0 !important;
+  padding: 0 !important;
 }
 
 .history-item-checkbox-label {
