@@ -1239,3 +1239,25 @@ mark {
 .markdown-content a:hover {
   color: var(--brandInk);
 }
+
+/* Markdown Toolbar */
+.md-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 6px 0 10px;
+}
+
+.md-toolbar button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: 0.15s;
+  color: var(--brandInk);
+}
+
+.md-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.32);
+}

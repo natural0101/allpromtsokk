@@ -881,6 +881,16 @@ function renderEditForm(prompt = null) {
         </div>
         <div>
           <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--brandInk);">Текст *</label>
+          <div class="md-toolbar">
+            <button type="button" data-md="h1">H1</button>
+            <button type="button" data-md="h2">H2</button>
+            <button type="button" data-md="bold"><b>B</b></button>
+            <button type="button" data-md="italic"><i>I</i></button>
+            <button type="button" data-md="ul">• Список</button>
+            <button type="button" data-md="ol">1. Список</button>
+            <button type="button" data-md="quote">" Цитата</button>
+            <button type="button" data-md="code">code</button>
+          </div>
           <textarea 
             id="promptTextInput"
             class="editor-textarea"
@@ -920,6 +930,9 @@ function renderEditForm(prompt = null) {
   const folderInput = document.getElementById('promptFolderInput');
   const tagsInput = document.getElementById('promptTagsInput');
   const importanceInput = document.getElementById('promptImportanceInput');
+  
+  // Настройка Markdown-тулбара
+  setupMarkdownToolbar(textInput);
   
   // Обработчики для переключателя типа промпта
   const importanceButtons = container.querySelectorAll('.importance-btn');
@@ -1570,6 +1583,138 @@ function showDeleteConfirm(message) {
       document.head.appendChild(style);
     }
   });
+}
+
+// ---------- MARKDOWN TOOLBAR ----------
+
+/**
+ * Настраивает обработчики для Markdown-тулбара
+ * @param {HTMLTextAreaElement} textarea - Элемент textarea
+ */
+function setupMarkdownToolbar(textarea) {
+  if (!textarea) return;
+  
+  const toolbar = document.querySelector('.md-toolbar');
+  if (!toolbar) return;
+  
+  toolbar.querySelectorAll('button[data-md]').forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      const mdType = button.getAttribute('data-md');
+      insertMarkdown(textarea, mdType);
+      // Возвращаем фокус на textarea
+      textarea.focus();
+    });
+  });
+}
+
+/**
+ * Вставляет Markdown-синтаксис в textarea в позицию курсора
+ * @param {HTMLTextAreaElement} textarea - Элемент textarea
+ * @param {string} type - Тип Markdown-синтаксиса (h1, h2, bold, italic, ul, ol, quote, code)
+ */
+function insertMarkdown(textarea, type) {
+  if (!textarea) return;
+  
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selectedText = text.substring(start, end);
+  
+  let insertText = '';
+  let newCursorPos = start;
+  
+  switch (type) {
+    case 'h1':
+      insertText = '# ';
+      newCursorPos = start + insertText.length;
+      break;
+      
+    case 'h2':
+      insertText = '## ';
+      newCursorPos = start + insertText.length;
+      break;
+      
+    case 'bold':
+      if (selectedText) {
+        insertText = `**${selectedText}**`;
+        newCursorPos = start + insertText.length;
+      } else {
+        insertText = '****';
+        newCursorPos = start + 2; // Курсор между звездочками
+      }
+      break;
+      
+    case 'italic':
+      if (selectedText) {
+        insertText = `*${selectedText}*`;
+        newCursorPos = start + insertText.length;
+      } else {
+        insertText = '**';
+        newCursorPos = start + 1; // Курсор между звездочками
+      }
+      break;
+      
+    case 'ul':
+      if (selectedText) {
+        // Если есть выделение, добавляем "- " к каждой строке
+        const lines = selectedText.split('\n');
+        insertText = lines.map(line => line ? `- ${line}` : '- ').join('\n');
+        newCursorPos = start + insertText.length;
+      } else {
+        insertText = '- ';
+        newCursorPos = start + insertText.length;
+      }
+      break;
+      
+    case 'ol':
+      if (selectedText) {
+        // Если есть выделение, добавляем "1. " к каждой строке
+        const lines = selectedText.split('\n');
+        insertText = lines.map((line, index) => line ? `${index + 1}. ${line}` : `${index + 1}. `).join('\n');
+        newCursorPos = start + insertText.length;
+      } else {
+        insertText = '1. ';
+        newCursorPos = start + insertText.length;
+      }
+      break;
+      
+    case 'quote':
+      if (selectedText) {
+        // Если есть выделение, добавляем "> " к каждой строке
+        const lines = selectedText.split('\n');
+        insertText = lines.map(line => line ? `> ${line}` : '> ').join('\n');
+        newCursorPos = start + insertText.length;
+      } else {
+        insertText = '> ';
+        newCursorPos = start + insertText.length;
+      }
+      break;
+      
+    case 'code':
+      if (selectedText) {
+        // Если есть выделение, оборачиваем в блок кода
+        insertText = '```\n' + selectedText + '\n```';
+        newCursorPos = start + insertText.length;
+      } else {
+        insertText = '```\n\n```';
+        newCursorPos = start + 4; // Курсор между бэктиками
+      }
+      break;
+      
+    default:
+      return;
+  }
+  
+  // Вставляем текст
+  const newText = text.substring(0, start) + insertText + text.substring(end);
+  textarea.value = newText;
+  
+  // Устанавливаем позицию курсора
+  textarea.setSelectionRange(newCursorPos, newCursorPos);
+  
+  // Триггерим событие input для обновления состояния формы
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 // ---------- MARKDOWN RENDERING ----------
