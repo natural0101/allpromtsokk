@@ -17,7 +17,9 @@ from ..models import User
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-def get_current_user(request: Request) -> User:
+# Импортируем get_current_user из main.py для единообразия
+# Но чтобы избежать циклических импортов, определим его здесь с той же логикой
+def get_current_user_from_request(request: Request) -> User:
     """
     Dependency для получения текущего пользователя из request.state.
     Middleware уже проверил авторизацию и добавил user в request.state.
@@ -32,11 +34,12 @@ def get_current_user(request: Request) -> User:
 
 
 @router.get("/me", response_model=UserOut)
-def get_current_user_info(current_user: User = Depends(get_current_user)):
+def get_current_user_info(request: Request):
     """
     Получить информацию о текущем авторизованном пользователе.
+    Использует ту же логику, что и get_current_user в main.py.
     """
-    return current_user
+    return get_current_user_from_request(request)
 
 
 @router.post("/telegram")

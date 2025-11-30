@@ -31,17 +31,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         method = request.method
         
-        # Публичные роуты (всегда доступны)
+        # Публичные роуты (всегда доступны, не требуют проверки токена)
         is_public = any(path.startswith(route) for route in self.PUBLIC_ROUTES)
         
-        # GET-запросы к /api/prompts не требуют авторизации
-        is_public_get_prompts = (
-            method == "GET" and 
-            (path == "/api/prompts" or path.startswith("/api/prompts/"))
-        )
-        
-        if is_public or is_public_get_prompts:
+        if is_public:
             return await call_next(request)
+        
+        # Для всех остальных роутов проверяем токен и добавляем пользователя в request.state
+        # Проверка статуса и уровня доступа будет происходить в dependencies (get_active_user, get_admin_user)
         
         # Извлекаем токен из cookie
         session_token = request.cookies.get("session_token")
@@ -65,6 +62,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 )
             
             # Добавляем пользователя в request.state
+            # Это позволит dependencies (get_current_user, get_active_user) использовать его
             request.state.user = session.user
             request.state.session = session
         finally:
