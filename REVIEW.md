@@ -705,3 +705,5 @@ frontend/
 - [ ] Миграция на PostgreSQL
 ```
 
+
+

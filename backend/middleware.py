@@ -7,6 +7,7 @@ from starlette.responses import Response
 
 from .auth_crud import get_session_by_token
 from .db import SessionLocal
+from .settings import settings
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -41,7 +42,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Проверка статуса и уровня доступа будет происходить в dependencies (get_active_user, get_admin_user)
         
         # Извлекаем токен из cookie
-        session_token = request.cookies.get("session_token")
+        session_token = request.cookies.get(settings.SESSION_COOKIE_NAME)
         
         if not session_token:
             return Response(

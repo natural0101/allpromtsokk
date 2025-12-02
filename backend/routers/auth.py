@@ -13,6 +13,7 @@ from ..auth_crud import (
 from ..db import get_db
 from ..schemas import TelegramAuthData, UserOut
 from ..models import User
+from ..settings import settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -77,14 +78,14 @@ def telegram_login(
     user = update_user_login_time(db, user)
     session = create_session(db, user_id=user.id)
     
-    # Устанавливаем cookie с токеном (используем session_token для единообразия)
+    # Устанавливаем cookie с токеном
     response.set_cookie(
-        key="session_token",
+        key=settings.SESSION_COOKIE_NAME,
         value=session.token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=30 * 24 * 60 * 60,  # 30 дней в секундах
+        httponly=settings.cookie_httponly,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=settings.SESSION_EXPIRES_DAYS * 24 * 60 * 60,  # в секундах
         path="/",
     )
     
@@ -110,13 +111,13 @@ def logout(
     Выход из системы. Отзывает текущую сессию и удаляет cookie.
     """
     # Получаем токен из cookie
-    session_token = request.cookies.get("session_token")
+    session_token = request.cookies.get(settings.SESSION_COOKIE_NAME)
     
     if session_token:
         revoke_session(db, session_token)
     
     # Удаляем cookie
-    response.delete_cookie(key="session_token", path="/")
+    response.delete_cookie(key=settings.SESSION_COOKIE_NAME, path="/")
     
     return {"detail": "ok"}
 

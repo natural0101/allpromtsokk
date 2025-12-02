@@ -5,6 +5,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from .models import User, Session as SessionModel
+from .settings import settings
 
 
 def get_user_by_telegram_id(db: Session, telegram_id: int) -> Optional[User]:
@@ -41,7 +42,9 @@ def update_user_login_time(db: Session, user: User) -> User:
     return user
 
 
-def create_session(db: Session, user_id: int, expires_in_days: int = 30) -> SessionModel:
+def create_session(db: Session, user_id: int, expires_in_days: int | None = None) -> SessionModel:
+    if expires_in_days is None:
+        expires_in_days = settings.SESSION_EXPIRES_DAYS
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
     

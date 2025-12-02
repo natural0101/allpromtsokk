@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 SQLAlchemy
 pydantic
+pydantic-settings
 python-dotenv
 
 
