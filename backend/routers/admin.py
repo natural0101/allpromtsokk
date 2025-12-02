@@ -1,46 +1,24 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..db import get_db
+from ..dependencies import get_admin_user
 from ..models import User
 from ..schemas import UserOut, UserUpdate
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
-def get_admin_user(request: Request) -> User:
-    """Получить admin пользователя из request.state"""
-    if not hasattr(request.state, "user") or request.state.user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
-    user = request.state.user
-    if user.status != "active":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="access_denied",
-            headers={"X-Reason": "status_not_active"}
-        )
-    if user.access_level != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    return user
-
-
 @router.get("/users", response_model=List[UserOut])
 def list_users(
-    request: Request,
     db: Session = Depends(get_db),
+    admin_user: User = Depends(get_admin_user),
 ):
     """
     Получить список всех пользователей. Только для администраторов.
     """
-    admin_user = get_admin_user(request)
     users = db.query(User).order_by(User.created_at.desc()).all()
     return users
 
@@ -49,13 +27,12 @@ def list_users(
 def update_user(
     user_id: int,
     user_update: UserUpdate,
-    request: Request,
     db: Session = Depends(get_db),
+    admin_user: User = Depends(get_admin_user),
 ):
     """
     Обновить статус или уровень доступа пользователя. Только для администраторов.
     """
-    admin_user = get_admin_user(request)
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(

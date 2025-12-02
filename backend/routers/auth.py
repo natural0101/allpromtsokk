@@ -11,6 +11,7 @@ from ..auth_crud import (
     update_user_login_time,
 )
 from ..db import get_db
+from ..dependencies import get_current_user
 from ..schemas import TelegramAuthData, UserOut
 from ..models import User
 from ..settings import settings
@@ -19,29 +20,12 @@ from ..utils import verify_telegram_auth
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-# Импортируем get_current_user из main.py для единообразия
-# Но чтобы избежать циклических импортов, определим его здесь с той же логикой
-def get_current_user_from_request(request: Request) -> User:
-    """
-    Dependency для получения текущего пользователя из request.state.
-    Middleware уже проверил авторизацию и добавил user в request.state.
-    """
-    if not hasattr(request.state, "user") or request.state.user is None:
-        from fastapi import HTTPException
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
-    return request.state.user
-
-
 @router.get("/me", response_model=UserOut)
-def get_current_user_info(request: Request):
+def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Получить информацию о текущем авторизованном пользователе.
-    Использует ту же логику, что и get_current_user в main.py.
     """
-    return get_current_user_from_request(request)
+    return current_user
 
 
 @router.post("/telegram")
