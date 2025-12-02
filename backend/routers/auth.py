@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from ..auth_crud import (
@@ -14,6 +14,7 @@ from ..db import get_db
 from ..schemas import TelegramAuthData, UserOut
 from ..models import User
 from ..settings import settings
+from ..utils import verify_telegram_auth
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -52,7 +53,25 @@ def telegram_login(
     """
     Авторизация через Telegram.
     Создаёт/обновляет пользователя и создаёт сессию.
+    Проверяет подпись Telegram Login Widget.
     """
+    # Проверка подписи Telegram
+    if not settings.TELEGRAM_BOT_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Telegram bot token not configured"
+        )
+    
+    # Преобразуем Pydantic модель в словарь для проверки
+    auth_data = payload.model_dump()
+    
+    # Проверяем подпись
+    if not verify_telegram_auth(auth_data, settings.TELEGRAM_BOT_TOKEN):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Telegram authentication hash"
+        )
+    
     user = get_user_by_telegram_id(db, telegram_id=payload.id)
     
     if not user:

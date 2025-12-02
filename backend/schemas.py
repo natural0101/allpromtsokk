@@ -48,6 +48,13 @@ class TelegramAuthData(BaseModel):
     username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    hash: str  # Подпись от Telegram
+    auth_date: int  # Время авторизации (Unix timestamp)
+    # Дополнительные поля, которые могут прийти от Telegram Widget
+    photo_url: Optional[str] = None
+    
+    class Config:
+        extra = "allow"  # Разрешаем дополнительные поля от Telegram
 
 
 class PromptBase(BaseModel):

@@ -3,19 +3,38 @@ from typing import List, Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from . import crud
 from .db import Base, engine, get_db
 from .middleware import AuthMiddleware
+from .rate_limit import RateLimitMiddleware
 from .models import User, PromptVersion
 from .routers import auth, admin
 from .schemas import PromptCreate, PromptOut, PromptUpdate, PromptVersionBase, PromptVersionDetail
+from .settings import settings
 
 # Загружаем переменные окружения из .env
 load_dotenv()
 
 app = FastAPI(title="autookk backend", version="1.0.0")
+
+# CORS middleware (должен быть первым)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.get_allowed_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+)
+
+# Rate limiting middleware
+if settings.RATE_LIMIT_ENABLED:
+    app.add_middleware(
+        RateLimitMiddleware,
+        enabled=settings.RATE_LIMIT_ENABLED,
+    )
 
 # Подключаем middleware авторизации
 app.add_middleware(AuthMiddleware)
