@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .db import Base, engine
+from .db import Base
 from .middleware import AuthMiddleware
 from .rate_limit import RateLimitMiddleware
 from .routers import admin, auth, prompts
@@ -41,10 +41,11 @@ app.include_router(prompts.router)
 @app.on_event("startup")
 def on_startup() -> None:
     """Инициализация приложения при старте."""
-    # Ensure all tables are created
-    Base.metadata.create_all(bind=engine)
+    # Примечание: создание таблиц теперь выполняется через Alembic миграции
+    # Не используем Base.metadata.create_all() - это делается через alembic upgrade head
     
     # Миграция существующих пользователей: устанавливаем status="active" и access_level
+    # Это временная логика для обновления данных существующих пользователей
     from .db import SessionLocal
     from .models import User
     
@@ -56,13 +57,12 @@ def on_startup() -> None:
         for user in users:
             user_updated = False
             # Если status не установлен или пустой, устанавливаем "active"
-            # SQLAlchemy автоматически создаст колонку при следующем запросе, но проверим явно
             try:
                 if not hasattr(user, 'status') or user.status is None or user.status == '':
                     user.status = "active"
                     user_updated = True
             except AttributeError:
-                # Колонка может не существовать в старых БД, но SQLAlchemy создаст её
+                # Колонка может не существовать в старых БД
                 user.status = "active"
                 user_updated = True
             

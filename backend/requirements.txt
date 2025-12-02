@@ -4,6 +4,7 @@ SQLAlchemy
 pydantic
 pydantic-settings
 python-dotenv
+alembic
 
 
 
