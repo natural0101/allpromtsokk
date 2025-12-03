@@ -661,7 +661,14 @@ export function renderEditForm(prompt = null) {
           />
         </div>
         <div class="editor-field">
-          <label class="editor-label" style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--brandInk);">Текст *</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label class="editor-label" style="margin: 0; font-weight: 500; color: var(--brandInk);">Текст *</label>
+            <div class="editor-mode-switcher" style="display: flex; gap: 4px; background: #f5f5f5; border-radius: 4px; padding: 2px;">
+              <button type="button" class="mode-btn active" data-mode="editor" style="padding: 4px 12px; border: none; background: transparent; cursor: pointer; border-radius: 3px; font-size: 13px;">Редактор</button>
+              <button type="button" class="mode-btn" data-mode="preview" style="padding: 4px 12px; border: none; background: transparent; cursor: pointer; border-radius: 3px; font-size: 13px;">Просмотр</button>
+              <button type="button" class="mode-btn" data-mode="both" style="padding: 4px 12px; border: none; background: transparent; cursor: pointer; border-radius: 3px; font-size: 13px;">Оба</button>
+            </div>
+          </div>
           <div class="md-toolbar">
             <button type="button" data-md="h1">H1</button>
             <button type="button" data-md="h2">H2</button>
@@ -684,12 +691,20 @@ export function renderEditForm(prompt = null) {
             <button type="button" data-md="link">🔗 Ссылка</button>
             <button type="button" data-md="table">▦ Таблица</button>
           </div>
-          <textarea 
-            id="promptTextInput"
-            class="editor-textarea"
-            placeholder="Текст промпта (Markdown)..."
-            required
-          >${prompt ? escapeHtml(prompt.text) : ''}</textarea>
+          <div class="editor-panes-container" style="display: flex; gap: 8px; min-height: 300px;">
+            <div class="editor-pane" id="editorPane" style="display: block; width: 100%; flex-shrink: 0;">
+              <textarea 
+                id="promptTextInput"
+                class="editor-textarea"
+                placeholder="Текст промпта (Markdown)..."
+                required
+                style="width: 100%; min-height: 300px; resize: vertical;"
+              >${prompt ? escapeHtml(prompt.text) : ''}</textarea>
+            </div>
+            <div class="preview-pane" id="previewPane" style="display: none; width: 50%; border: 1px solid #ddd; border-radius: 4px; padding: 12px; overflow-y: auto; background: #fff; min-height: 300px;">
+              <div id="previewContainer" class="preview-content markdown-content" style="line-height: 1.6; color: #333;"></div>
+            </div>
+          </div>
         </div>
         <div>
           <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--brandInk);">Папка</label>
@@ -726,9 +741,62 @@ export function renderEditForm(prompt = null) {
   setupMarkdownToolbar(textInput);
   setupEditorHotkeys(textInput);
   
+  // Setup editor preview and mode switching
+  const editorPane = document.getElementById('editorPane');
+  const previewPane = document.getElementById('previewPane');
+  const previewContainer = document.getElementById('previewContainer');
+  const modeButtons = document.querySelectorAll('.mode-btn');
+  
+  let currentMode = 'editor';
+  
   // Import editor functions dynamically to avoid circular dependency
   import('./editor.js').then(editorModule => {
-    const { autoResizeTextarea, checkFormChanges } = editorModule;
+    const { autoResizeTextarea, checkFormChanges, setupEditorPreview, switchEditorMode } = editorModule;
+    
+    // Setup preview functionality
+    if (textInput && previewContainer && editorPane && previewPane) {
+      setupEditorPreview(textInput, previewContainer, editorPane, previewPane);
+    }
+    
+    // Setup mode switcher
+    const toolbar = form.querySelector('.md-toolbar');
+    
+    modeButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const mode = btn.getAttribute('data-mode');
+        if (!mode || mode === currentMode) return;
+        
+        currentMode = mode;
+        
+        // Update button states
+        modeButtons.forEach(b => {
+          if (b.getAttribute('data-mode') === mode) {
+            b.classList.add('active');
+            b.style.background = '#fff';
+            b.style.fontWeight = '500';
+          } else {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+            b.style.fontWeight = 'normal';
+          }
+        });
+        
+        // Show/hide toolbar based on mode
+        if (toolbar) {
+          if (mode === 'preview') {
+            toolbar.style.display = 'none';
+          } else {
+            toolbar.style.display = 'flex';
+          }
+        }
+        
+        // Switch editor mode
+        if (textInput && editorPane && previewPane && previewContainer) {
+          switchEditorMode(mode, textInput, editorPane, previewPane, previewContainer);
+        }
+      });
+    });
     
     function updateTextareaBorder() {
       if (textInput) {

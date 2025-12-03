@@ -1,6 +1,7 @@
 // Editor Logic
 
 import * as state from './state.js';
+import { renderMarkdown } from './utils.js';
 
 /**
  * Auto-resize textarea with max height limit
@@ -418,5 +419,136 @@ export function setupEditorHotkeys(textarea) {
       return;
     }
   });
+}
+
+/**
+ * Editor preview mode management
+ */
+let previewUpdateTimeout = null;
+let isScrollingSync = false;
+
+/**
+ * Update preview content with debounce
+ * @param {HTMLTextAreaElement} textarea
+ * @param {HTMLElement} previewContainer
+ */
+function updatePreview(textarea, previewContainer) {
+  if (!textarea || !previewContainer) return;
+  
+  const markdown = textarea.value || '';
+  const html = renderMarkdown(markdown);
+  previewContainer.innerHTML = html;
+}
+
+/**
+ * Debounced preview update
+ * @param {HTMLTextAreaElement} textarea
+ * @param {HTMLElement} previewContainer
+ * @param {number} delay
+ */
+function debouncedUpdatePreview(textarea, previewContainer, delay = 250) {
+  if (previewUpdateTimeout) {
+    clearTimeout(previewUpdateTimeout);
+  }
+  previewUpdateTimeout = setTimeout(() => {
+    updatePreview(textarea, previewContainer);
+  }, delay);
+}
+
+/**
+ * Setup scroll synchronization from textarea to preview
+ * @param {HTMLTextAreaElement} textarea
+ * @param {HTMLElement} previewPane
+ */
+function setupPreviewScrollSync(textarea, previewPane) {
+  if (!textarea || !previewPane) return;
+  
+  textarea.addEventListener('scroll', () => {
+    if (isScrollingSync) return;
+    
+    const textareaScrollHeight = textarea.scrollHeight - textarea.clientHeight;
+    if (textareaScrollHeight <= 0) return;
+    
+    const scrollPercent = textarea.scrollTop / textareaScrollHeight;
+    const previewScrollHeight = previewPane.scrollHeight - previewPane.clientHeight;
+    
+    if (previewScrollHeight > 0) {
+      isScrollingSync = true;
+      previewPane.scrollTop = scrollPercent * previewScrollHeight;
+      requestAnimationFrame(() => {
+        isScrollingSync = false;
+      });
+    }
+  });
+}
+
+/**
+ * Switch editor mode (editor/preview/both)
+ * @param {string} mode - 'editor' | 'preview' | 'both'
+ * @param {HTMLTextAreaElement} textarea
+ * @param {HTMLElement} editorPane
+ * @param {HTMLElement} previewPane
+ * @param {HTMLElement} previewContainer
+ */
+export function switchEditorMode(mode, textarea, editorPane, previewPane, previewContainer) {
+  if (!textarea || !editorPane || !previewPane || !previewContainer) return;
+  
+  // Hide/show panes based on mode
+  switch (mode) {
+    case 'editor':
+      editorPane.style.display = 'block';
+      editorPane.style.width = '100%';
+      previewPane.style.display = 'none';
+      // Ensure textarea is visible and focusable
+      textarea.style.display = 'block';
+      break;
+      
+    case 'preview':
+      // Hide editor pane visually, but keep textarea in DOM for saving
+      editorPane.style.display = 'none';
+      previewPane.style.display = 'block';
+      previewPane.style.width = '100%';
+      // Update preview immediately when switching to preview mode
+      updatePreview(textarea, previewContainer);
+      break;
+      
+    case 'both':
+      editorPane.style.display = 'block';
+      editorPane.style.width = '50%';
+      editorPane.style.flexShrink = '0';
+      previewPane.style.display = 'block';
+      previewPane.style.width = '50%';
+      previewPane.style.flexShrink = '0';
+      // Ensure textarea is visible
+      textarea.style.display = 'block';
+      // Update preview immediately when switching to split mode
+      updatePreview(textarea, previewContainer);
+      break;
+      
+    default:
+      return;
+  }
+}
+
+/**
+ * Setup editor preview functionality
+ * @param {HTMLTextAreaElement} textarea
+ * @param {HTMLElement} previewContainer
+ * @param {HTMLElement} editorPane
+ * @param {HTMLElement} previewPane
+ */
+export function setupEditorPreview(textarea, previewContainer, editorPane, previewPane) {
+  if (!textarea || !previewContainer) return;
+  
+  // Initial preview update
+  updatePreview(textarea, previewContainer);
+  
+  // Update preview on textarea input (debounced)
+  textarea.addEventListener('input', () => {
+    debouncedUpdatePreview(textarea, previewContainer);
+  });
+  
+  // Setup scroll sync (sync textarea scroll to preview pane)
+  setupPreviewScrollSync(textarea, previewPane);
 }
 
