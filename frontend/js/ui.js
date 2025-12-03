@@ -749,11 +749,13 @@ export function renderEditForm(prompt = null) {
   const tagsInput = document.getElementById('promptTagsInput');
   
   setupMarkdownToolbar(textInput);
-  setupEditorHotkeys(textInput);
   
   // Setup editor preview and mode switching
   const editorPane = document.getElementById('editorPane');
   const previewPane = document.getElementById('previewPane');
+  
+  // Setup editor hotkeys (also handle preview pane for Ctrl+F/H)
+  setupEditorHotkeys(textInput, previewPane);
   const previewContainer = document.getElementById('previewContainer');
   const modeButtons = document.querySelectorAll('.mode-btn');
   

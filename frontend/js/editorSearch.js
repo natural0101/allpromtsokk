@@ -282,12 +282,10 @@ export function openSearch(initialQuery = '', replaceMode = false) {
     performSearch();
   }
   
+  // Always focus on search input first, even in replace mode
+  // User can tab to replace input if needed
   searchInput.focus();
   searchInput.select();
-  
-  if (replaceMode && replaceInput) {
-    setTimeout(() => replaceInput.focus(), 100);
-  }
 }
 
 /**
@@ -319,4 +317,5 @@ export function destroySearch() {
   matches = [];
   currentMatchIndex = -1;
 }
+
 

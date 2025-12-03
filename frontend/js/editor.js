@@ -344,10 +344,74 @@ export function insertAtCursor(textarea, textToInsert, addNewlineAfter = false) 
  * Setup editor keyboard shortcuts (hotkeys)
  * @param {HTMLTextAreaElement} textarea
  */
-export function setupEditorHotkeys(textarea) {
+// Store hotkey handler reference for cleanup
+let editorHotkeyHandler = null;
+let editorTextarea = null;
+let previewHotkeyHandler = null;
+let previewPane = null;
+
+/**
+ * Create hotkey handler for search/replace
+ * @param {HTMLTextAreaElement} textareaElement
+ * @returns {Function}
+ */
+function createSearchHotkeyHandler(textareaElement) {
+  return (e) => {
+    const isMod = e.ctrlKey || e.metaKey;
+    if (!isMod) return;
+    
+    const key = e.key.toLowerCase();
+    
+    // Ctrl+F -> search
+    if (!e.shiftKey && key === 'f') {
+      e.preventDefault();
+      // Get selected text if any (from textarea, not from preview)
+      const selectedText = textareaElement.value.substring(
+        textareaElement.selectionStart, 
+        textareaElement.selectionEnd
+      );
+      const initialQuery = selectedText.trim() || '';
+      import('./editorSearch.js').then(module => {
+        module.openSearch(initialQuery, false);
+      });
+      return;
+    }
+    
+    // Ctrl+H -> search and replace
+    if (!e.shiftKey && key === 'h') {
+      e.preventDefault();
+      // Get selected text if any (from textarea, not from preview)
+      const selectedText = textareaElement.value.substring(
+        textareaElement.selectionStart, 
+        textareaElement.selectionEnd
+      );
+      const initialQuery = selectedText.trim() || '';
+      import('./editorSearch.js').then(module => {
+        module.openSearch(initialQuery, true);
+      });
+      return;
+    }
+  };
+}
+
+export function setupEditorHotkeys(textarea, previewPaneElement = null) {
   if (!textarea) return;
   
-  textarea.addEventListener('keydown', (e) => {
+  // Remove previous handlers if exist
+  if (editorTextarea && editorHotkeyHandler) {
+    editorTextarea.removeEventListener('keydown', editorHotkeyHandler);
+  }
+  if (previewPane && previewHotkeyHandler) {
+    previewPane.removeEventListener('keydown', previewHotkeyHandler);
+  }
+  
+  editorTextarea = textarea;
+  previewPane = previewPaneElement;
+  
+  // Create shared hotkey handler
+  const searchHandler = createSearchHotkeyHandler(textarea);
+  
+  editorHotkeyHandler = (e) => {
     const isMod = e.ctrlKey || e.metaKey;
     
     // Tab / Shift+Tab for list indentation
@@ -451,8 +515,11 @@ export function setupEditorHotkeys(textarea) {
     // Ctrl+F -> search
     if (!e.shiftKey && key === 'f') {
       e.preventDefault();
+      // Get selected text if any
+      const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+      const initialQuery = selectedText.trim() || '';
       import('./editorSearch.js').then(module => {
-        module.openSearch('', false);
+        module.openSearch(initialQuery, false);
       });
       return;
     }
@@ -460,12 +527,43 @@ export function setupEditorHotkeys(textarea) {
     // Ctrl+H -> search and replace
     if (!e.shiftKey && key === 'h') {
       e.preventDefault();
+      // Get selected text if any
+      const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+      const initialQuery = selectedText.trim() || '';
       import('./editorSearch.js').then(module => {
-        module.openSearch('', true);
+        module.openSearch(initialQuery, true);
       });
       return;
     }
-  });
+  };
+  
+  textarea.addEventListener('keydown', editorHotkeyHandler);
+  
+  // Also add hotkey handler to preview pane if provided
+  if (previewPane) {
+    previewHotkeyHandler = searchHandler;
+    previewPane.addEventListener('keydown', previewHotkeyHandler);
+    // Make preview pane focusable for keyboard events
+    if (!previewPane.hasAttribute('tabindex')) {
+      previewPane.setAttribute('tabindex', '-1');
+    }
+  }
+}
+
+/**
+ * Cleanup editor hotkeys
+ */
+export function cleanupEditorHotkeys() {
+  if (editorTextarea && editorHotkeyHandler) {
+    editorTextarea.removeEventListener('keydown', editorHotkeyHandler);
+    editorHotkeyHandler = null;
+    editorTextarea = null;
+  }
+  if (previewPane && previewHotkeyHandler) {
+    previewPane.removeEventListener('keydown', previewHotkeyHandler);
+    previewHotkeyHandler = null;
+    previewPane = null;
+  }
 }
 
 /**
@@ -816,6 +914,9 @@ export function cleanupEditorProtection() {
   }
   currentPromptId = null;
   originalText = '';
+  
+  // Cleanup editor hotkeys
+  cleanupEditorHotkeys();
   
   // Also cleanup outline, search, bracket highlighting, and image handlers
   import('./editorOutline.js').then(m => m.destroyOutline()).catch(() => {});
