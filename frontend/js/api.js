@@ -208,12 +208,8 @@ export async function telegramLogin(user) {
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({
-        id: user.id,
-        username: user.username || null,
-        first_name: user.first_name || null,
-        last_name: user.last_name || null,
-      }),
+      // Передаём на backend ровно тот payload, который прислал Telegram widget
+      body: JSON.stringify(user),
     });
     
     if (!response.ok) {
