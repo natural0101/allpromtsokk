@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from ..auth_crud import (
@@ -16,6 +16,7 @@ from ..schemas import TelegramAuthData, UserOut, AuthResponse
 from ..models import User
 from ..settings import settings
 from ..utils import verify_telegram_auth
+from pydantic import ValidationError
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -30,8 +31,8 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 @router.post("/telegram", response_model=AuthResponse)
 async def telegram_auth(
-    data: TelegramAuthData,
-    response: Response,
+    payload: dict = Body(...),
+    response: Response = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -46,14 +47,19 @@ async def telegram_auth(
             detail="Telegram bot token not configured"
         )
     
-    # Преобразуем Pydantic модель в словарь для проверки (без None-значений)
-    payload = data.model_dump(exclude_none=True)
-
-    # Проверяем подпись
+    # Проверяем подпись на raw-payload
     if not verify_telegram_auth(payload, settings.TELEGRAM_BOT_TOKEN):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Telegram authentication hash"
+        )
+    # Пытаемся привести к нашей внутренней модели
+    try:
+        data = TelegramAuthData.model_validate(payload)
+    except ValidationError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Telegram payload",
         )
 
     user = get_user_by_telegram_id(db, telegram_id=data.id)
