@@ -5,8 +5,8 @@ import { handleTelegramAuth } from './frontend/js/events.js';
 import { checkAuth, loadVersion } from './frontend/js/router.js';
 import { loadPrompts } from './frontend/js/router.js';
 
-// Expose Telegram auth handler globally for Telegram Login Widget
-window.onTelegramAuth = (user) => handleTelegramAuth(user);
+// Пробрасываем обработчик из модулей в глобальный scope для fallback-скрипта
+window.handleTelegramAuthFromApp = (user) => handleTelegramAuth(user);
 
 /**
  * Initialize application
