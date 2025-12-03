@@ -12,7 +12,7 @@ from ..auth_crud import (
 )
 from ..db import get_db
 from ..dependencies import get_current_user
-from ..schemas import TelegramAuthData, UserOut
+from ..schemas import TelegramAuthData, UserOut, AuthResponse
 from ..models import User
 from ..settings import settings
 from ..utils import verify_telegram_auth
@@ -28,9 +28,9 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.post("/telegram")
-def telegram_login(
-    payload: TelegramAuthData,
+@router.post("/telegram", response_model=AuthResponse)
+async def telegram_auth(
+    data: TelegramAuthData,
     response: Response,
     db: Session = Depends(get_db),
 ):
@@ -46,35 +46,35 @@ def telegram_login(
             detail="Telegram bot token not configured"
         )
     
-    # Преобразуем Pydantic модель в словарь для проверки
-    auth_data = payload.model_dump()
-    
+    # Преобразуем Pydantic модель в словарь для проверки (без None-значений)
+    payload = data.model_dump(exclude_none=True)
+
     # Проверяем подпись
-    if not verify_telegram_auth(auth_data, settings.TELEGRAM_BOT_TOKEN):
+    if not verify_telegram_auth(payload, settings.TELEGRAM_BOT_TOKEN):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Telegram authentication hash"
         )
-    
-    user = get_user_by_telegram_id(db, telegram_id=payload.id)
+
+    user = get_user_by_telegram_id(db, telegram_id=data.id)
     
     if not user:
         # Новый пользователь: создаём со status="pending", access_level="user"
         user = create_user(
             db,
-            telegram_id=payload.id,
-            username=payload.username,
-            first_name=payload.first_name,
-            last_name=payload.last_name,
+            telegram_id=data.id,
+            username=data.username,
+            first_name=data.first_name,
+            last_name=data.last_name,
         )
     else:
         # Существующий пользователь: обновляем только данные профиля, НЕ меняем status и access_level
-        if payload.username and payload.username != user.username:
-            user.username = payload.username
-        if payload.first_name and payload.first_name != user.first_name:
-            user.first_name = payload.first_name
-        if payload.last_name and payload.last_name != user.last_name:
-            user.last_name = payload.last_name
+        if data.username and data.username != user.username:
+            user.username = data.username
+        if data.first_name and data.first_name != user.first_name:
+            user.first_name = data.first_name
+        if data.last_name and data.last_name != user.last_name:
+            user.last_name = data.last_name
         db.commit()
         db.refresh(user)
     

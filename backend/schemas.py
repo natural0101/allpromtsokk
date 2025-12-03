@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl, ConfigDict
 
 
 class UserBase(BaseModel):
@@ -45,16 +45,28 @@ class SessionOut(BaseModel):
 
 class TelegramAuthData(BaseModel):
     id: int
+    first_name: str | None = None
+    last_name: str | None = None
+    username: str | None = None
+    photo_url: HttpUrl | None = None
+    auth_date: int
+    hash: str
+
+    # Игнорировать лишние поля, которые может прислать Telegram
+    model_config = ConfigDict(extra="ignore")
+
+
+class AuthUser(BaseModel):
+    id: int
     username: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    hash: str  # Подпись от Telegram
-    auth_date: int  # Время авторизации (Unix timestamp)
-    # Дополнительные поля, которые могут прийти от Telegram Widget
-    photo_url: Optional[str] = None
-    
-    class Config:
-        extra = "allow"  # Разрешаем дополнительные поля от Telegram
+    role: str
+    status: str
+    access_level: str
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user: AuthUser
 
 
 class PromptBase(BaseModel):
