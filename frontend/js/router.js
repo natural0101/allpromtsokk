@@ -46,6 +46,10 @@ export async function loadPrompt(slug) {
     return;
   }
   
+  // Cleanup editor protection when switching prompts
+  const { cleanupEditorProtection } = await import('./editor.js');
+  cleanupEditorProtection();
+  
   try {
     const prompt = await api.fetchPromptBySlug(slug);
     if (!prompt) {

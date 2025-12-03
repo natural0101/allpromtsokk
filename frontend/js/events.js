@@ -109,6 +109,9 @@ export async function handleSavePrompt(slug = null) {
     };
 
     let savedPrompt;
+    const isNew = !slug;
+    const oldPromptId = isNew ? null : slug; // For new prompts, we'll use null initially
+    
     if (slug) {
       savedPrompt = await api.updatePrompt(slug, data);
       if (!savedPrompt) {
@@ -118,6 +121,11 @@ export async function handleSavePrompt(slug = null) {
     } else {
       savedPrompt = await api.createPrompt(data);
     }
+
+    // Update editor protection after successful save
+    const { updateEditorProtection } = await import('./editor.js');
+    const newPromptId = savedPrompt.id || savedPrompt.slug;
+    updateEditorProtection(text, newPromptId);
 
     state.setHasUnsavedChanges(false);
     state.setOriginalFormData(null);

@@ -432,11 +432,15 @@ function renderPromptItem(prompt) {
 /**
  * Render editor (view or edit mode)
  */
-export function renderEditor(prompt) {
+export async function renderEditor(prompt) {
   const container = document.getElementById('editorContent');
   if (!container) return;
   
   if (!prompt) {
+    // Cleanup editor protection when clearing editor
+    const { cleanupEditorProtection } = await import('./editor.js');
+    cleanupEditorProtection();
+    
     container.innerHTML = `
       <div class="editor-placeholder">
         <p>Выберите промпт слева для просмотра и редактирования</p>
@@ -449,6 +453,10 @@ export function renderEditor(prompt) {
   if (state.getIsEditMode()) {
     renderEditForm(prompt);
   } else {
+    // Cleanup editor protection when switching to view mode
+    const { cleanupEditorProtection } = await import('./editor.js');
+    cleanupEditorProtection();
+    
     renderViewMode(prompt);
   }
 }
@@ -750,8 +758,47 @@ export function renderEditForm(prompt = null) {
   let currentMode = 'editor';
   
   // Import editor functions dynamically to avoid circular dependency
-  import('./editor.js').then(editorModule => {
-    const { autoResizeTextarea, checkFormChanges, setupEditorPreview, switchEditorMode } = editorModule;
+  import('./editor.js').then(async editorModule => {
+    const { 
+      autoResizeTextarea, 
+      checkFormChanges, 
+      setupEditorPreview, 
+      switchEditorMode,
+      setupEditorProtection,
+      cleanupEditorProtection,
+      shouldRestoreDraft,
+      restoreDraft,
+      clearDraft
+    } = editorModule;
+    
+    // Get prompt ID for draft management
+    const promptId = prompt?.id || null;
+    const serverText = prompt?.text || '';
+    
+    // Check for draft restoration (before setting up protection)
+    if (textInput && shouldRestoreDraft(serverText, promptId)) {
+      const restore = confirm('Есть несохранённый черновик для этого промпта. Восстановить его?');
+      if (restore) {
+        if (restoreDraft(textInput, promptId)) {
+          // Draft restored, update preview if needed
+          const previewContainer = document.getElementById('previewContainer');
+          if (previewContainer) {
+            const { renderMarkdown } = await import('./utils.js');
+            previewContainer.innerHTML = renderMarkdown(textInput.value);
+          }
+        }
+      } else {
+        // User chose not to restore - clear draft
+        clearDraft(promptId);
+      }
+    }
+    
+    // Setup editor protection (autosave + beforeunload)
+    // Use current textarea value (which may have been restored from draft)
+    const initialText = textInput ? textInput.value || '' : '';
+    if (textInput) {
+      setupEditorProtection(textInput, promptId, initialText);
+    }
     
     // Setup preview functionality
     if (textInput && previewContainer && editorPane && previewPane) {
@@ -860,8 +907,12 @@ export function renderEditForm(prompt = null) {
   }
 
   if (cancelBtn) {
-    cancelBtn.addEventListener('click', () => {
+    cancelBtn.addEventListener('click', async () => {
       if (!confirmUnsavedChanges()) return;
+      
+      // Cleanup editor protection
+      const { cleanupEditorProtection } = await import('./editor.js');
+      cleanupEditorProtection();
       
       state.setHasUnsavedChanges(false);
       state.setOriginalFormData(null);

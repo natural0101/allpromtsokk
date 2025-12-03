@@ -552,3 +552,222 @@ export function setupEditorPreview(textarea, previewContainer, editorPane, previ
   setupPreviewScrollSync(textarea, previewPane);
 }
 
+/**
+ * Autosave and beforeunload protection
+ */
+
+let autosaveTimeout = null;
+let beforeunloadHandler = null;
+let originalText = '';
+let currentPromptId = null;
+
+/**
+ * Get localStorage key for draft
+ * @param {number|string|null} promptId
+ * @returns {string}
+ */
+function getDraftKey(promptId) {
+  return promptId ? `prompt_draft_${promptId}` : 'prompt_draft_new';
+}
+
+/**
+ * Save draft to localStorage
+ * @param {string} text
+ * @param {number|string|null} promptId
+ */
+function saveDraft(text, promptId) {
+  try {
+    const key = getDraftKey(promptId);
+    const draft = {
+      text: text,
+      updated_at: Date.now()
+    };
+    localStorage.setItem(key, JSON.stringify(draft));
+  } catch (error) {
+    console.error('Ошибка сохранения черновика:', error);
+  }
+}
+
+/**
+ * Load draft from localStorage
+ * @param {number|string|null} promptId
+ * @returns {{ text: string, updated_at: number }|null}
+ */
+export function loadDraft(promptId) {
+  try {
+    const key = getDraftKey(promptId);
+    const draftStr = localStorage.getItem(key);
+    if (!draftStr) return null;
+    return JSON.parse(draftStr);
+  } catch (error) {
+    console.error('Ошибка загрузки черновика:', error);
+    return null;
+  }
+}
+
+/**
+ * Clear draft from localStorage
+ * @param {number|string|null} promptId
+ */
+export function clearDraft(promptId) {
+  try {
+    const key = getDraftKey(promptId);
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.error('Ошибка удаления черновика:', error);
+  }
+}
+
+/**
+ * Check if draft should be restored
+ * @param {string} serverText
+ * @param {number|string|null} promptId
+ * @returns {boolean}
+ */
+export function shouldRestoreDraft(serverText, promptId) {
+  const draft = loadDraft(promptId);
+  if (!draft) return false;
+  
+  // Check if draft is different from server text
+  if (draft.text.trim() === serverText.trim()) return false;
+  
+  // Draft exists and is different - user should decide
+  return true;
+}
+
+/**
+ * Restore draft to textarea
+ * @param {HTMLTextAreaElement} textarea
+ * @param {number|string|null} promptId
+ * @returns {boolean} - true if draft was restored
+ */
+export function restoreDraft(textarea, promptId) {
+  if (!textarea) return false;
+  
+  const draft = loadDraft(promptId);
+  if (!draft) return false;
+  
+  textarea.value = draft.text;
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}
+
+/**
+ * Setup autosave for textarea
+ * @param {HTMLTextAreaElement} textarea
+ * @param {number|string|null} promptId
+ * @param {number} delay - debounce delay in ms
+ */
+function setupAutosave(textarea, promptId, delay = 2500) {
+  if (!textarea) return;
+  
+  textarea.addEventListener('input', () => {
+    if (autosaveTimeout) {
+      clearTimeout(autosaveTimeout);
+    }
+    
+    autosaveTimeout = setTimeout(() => {
+      const text = textarea.value || '';
+      saveDraft(text, promptId);
+    }, delay);
+  });
+}
+
+/**
+ * Setup beforeunload protection
+ * @param {HTMLTextAreaElement} textarea
+ * @param {string} initialText
+ */
+function setupBeforeunload(textarea, initialText) {
+  if (!textarea) return;
+  
+  // Remove existing handler if any
+  if (beforeunloadHandler) {
+    window.removeEventListener('beforeunload', beforeunloadHandler);
+  }
+  
+  beforeunloadHandler = (e) => {
+    const currentText = textarea.value || '';
+    const hasChanges = currentText.trim() !== initialText.trim();
+    
+    if (hasChanges) {
+      // Standard way to show browser's confirmation dialog
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  };
+  
+  window.addEventListener('beforeunload', beforeunloadHandler);
+}
+
+/**
+ * Remove beforeunload protection
+ */
+export function removeBeforeunload() {
+  if (beforeunloadHandler) {
+    window.removeEventListener('beforeunload', beforeunloadHandler);
+    beforeunloadHandler = null;
+  }
+}
+
+/**
+ * Setup autosave and beforeunload protection for editor
+ * @param {HTMLTextAreaElement} textarea
+ * @param {number|string|null} promptId
+ * @param {string} initialText
+ */
+export function setupEditorProtection(textarea, promptId, initialText) {
+  if (!textarea) return;
+  
+  // Store current prompt ID and original text
+  currentPromptId = promptId;
+  originalText = initialText || '';
+  
+  // Setup autosave
+  setupAutosave(textarea, promptId);
+  
+  // Setup beforeunload protection
+  setupBeforeunload(textarea, originalText);
+}
+
+/**
+ * Update original text after successful save
+ * @param {string} newText
+ * @param {number|string|null} newPromptId
+ */
+export function updateEditorProtection(newText, newPromptId) {
+  originalText = newText || '';
+  
+  // If prompt ID changed (new -> existing), clear old draft and update ID
+  if (currentPromptId !== newPromptId) {
+    if (currentPromptId !== null) {
+      clearDraft(currentPromptId);
+    }
+    currentPromptId = newPromptId;
+  }
+  
+  // Clear draft after successful save
+  clearDraft(newPromptId);
+  
+  // Update beforeunload handler with new original text
+  const textarea = document.getElementById('promptTextInput');
+  if (textarea && beforeunloadHandler) {
+    removeBeforeunload();
+    setupBeforeunload(textarea, originalText);
+  }
+}
+
+/**
+ * Cleanup editor protection (call when closing editor)
+ */
+export function cleanupEditorProtection() {
+  removeBeforeunload();
+  if (autosaveTimeout) {
+    clearTimeout(autosaveTimeout);
+    autosaveTimeout = null;
+  }
+  currentPromptId = null;
+  originalText = '';
+}
+
