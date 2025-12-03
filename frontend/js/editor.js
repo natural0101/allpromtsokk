@@ -418,6 +418,24 @@ export function setupEditorHotkeys(textarea) {
       insertMarkdown(textarea, 'quote');
       return;
     }
+    
+    // Ctrl+F -> search
+    if (!e.shiftKey && key === 'f') {
+      e.preventDefault();
+      import('./editorSearch.js').then(module => {
+        module.openSearch('', false);
+      });
+      return;
+    }
+    
+    // Ctrl+H -> search and replace
+    if (!e.shiftKey && key === 'h') {
+      e.preventDefault();
+      import('./editorSearch.js').then(module => {
+        module.openSearch('', true);
+      });
+      return;
+    }
   });
 }
 
@@ -769,5 +787,10 @@ export function cleanupEditorProtection() {
   }
   currentPromptId = null;
   originalText = '';
+  
+  // Also cleanup outline, search, and bracket highlighting
+  import('./editorOutline.js').then(m => m.destroyOutline()).catch(() => {});
+  import('./editorSearch.js').then(m => m.destroySearch()).catch(() => {});
+  import('./editorBrackets.js').then(m => m.destroyBracketHighlighting()).catch(() => {});
 }
 

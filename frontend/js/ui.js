@@ -699,6 +699,7 @@ export function renderEditForm(prompt = null) {
             <button type="button" data-md="link">🔗 Ссылка</button>
             <button type="button" data-md="table">▦ Таблица</button>
           </div>
+          <div class="search-panel-container" id="searchPanelContainer"></div>
           <div class="editor-panes-container" style="display: flex; gap: 8px; min-height: 300px;">
             <div class="editor-pane" id="editorPane" style="display: block; width: 100%; flex-shrink: 0;">
               <textarea 
@@ -712,6 +713,7 @@ export function renderEditForm(prompt = null) {
             <div class="preview-pane" id="previewPane" style="display: none; width: 50%; border: 1px solid #ddd; border-radius: 4px; padding: 12px; overflow-y: auto; background: #fff; min-height: 300px;">
               <div id="previewContainer" class="preview-content markdown-content" style="line-height: 1.6; color: #333;"></div>
             </div>
+            <div class="editor-outline" id="editorOutline" style="display: none; width: 200px; flex-shrink: 0;"></div>
           </div>
         </div>
         <div>
@@ -805,6 +807,28 @@ export function renderEditForm(prompt = null) {
       setupEditorPreview(textInput, previewContainer, editorPane, previewPane);
     }
     
+    // Setup outline, search, and bracket highlighting
+    const outlineContainer = document.getElementById('editorOutline');
+    const searchContainer = document.getElementById('searchPanelContainer');
+    
+    if (textInput) {
+      // Initialize outline
+      if (outlineContainer) {
+        const { initOutline } = await import('./editorOutline.js');
+        initOutline(textInput, outlineContainer, previewContainer);
+      }
+      
+      // Initialize search
+      if (searchContainer) {
+        const { initSearch } = await import('./editorSearch.js');
+        initSearch(textInput, searchContainer);
+      }
+      
+      // Initialize bracket highlighting
+      const { initBracketHighlighting } = await import('./editorBrackets.js');
+      initBracketHighlighting(textInput);
+    }
+    
     // Setup mode switcher
     const toolbar = form.querySelector('.md-toolbar');
     
@@ -841,6 +865,23 @@ export function renderEditForm(prompt = null) {
         // Switch editor mode
         if (textInput && editorPane && previewPane && previewContainer) {
           switchEditorMode(mode, textInput, editorPane, previewPane, previewContainer);
+          
+          // Show/hide outline based on mode (show in split-view and preview modes)
+          const outlineContainer = document.getElementById('editorOutline');
+          if (outlineContainer) {
+            if (mode === 'both') {
+              outlineContainer.style.display = 'block';
+              // Adjust pane widths when outline is visible
+              editorPane.style.width = 'calc(50% - 104px)';
+              previewPane.style.width = 'calc(50% - 104px)';
+            } else if (mode === 'preview') {
+              outlineContainer.style.display = 'block';
+              previewPane.style.width = 'calc(100% - 208px)';
+            } else {
+              outlineContainer.style.display = 'none';
+              editorPane.style.width = '100%';
+            }
+          }
         }
       });
     });
@@ -913,6 +954,14 @@ export function renderEditForm(prompt = null) {
       // Cleanup editor protection
       const { cleanupEditorProtection } = await import('./editor.js');
       cleanupEditorProtection();
+      
+      // Cleanup outline, search, and bracket highlighting
+      const { destroyOutline } = await import('./editorOutline.js');
+      const { destroySearch } = await import('./editorSearch.js');
+      const { destroyBracketHighlighting } = await import('./editorBrackets.js');
+      destroyOutline();
+      destroySearch();
+      destroyBracketHighlighting();
       
       state.setHasUnsavedChanges(false);
       state.setOriginalFormData(null);

@@ -1319,6 +1319,142 @@ mark {
   color: #333;
 }
 
+/* Editor Outline */
+.editor-outline {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.editor-outline .outline-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--brandInk);
+  font-size: 14px;
+}
+
+.editor-outline .outline-item {
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  margin: 2px 0;
+  color: var(--brandInk);
+  transition: background 0.2s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-outline .outline-item:hover {
+  background: rgba(58, 42, 79, 0.1);
+}
+
+.editor-outline .outline-level-1 {
+  font-weight: 600;
+}
+
+.editor-outline .outline-level-2 {
+  font-weight: 500;
+}
+
+.editor-outline .outline-level-3 {
+  font-weight: normal;
+}
+
+.editor-outline .outline-empty {
+  color: #888;
+  font-style: italic;
+  padding: 8px;
+  text-align: center;
+}
+
+/* Search Panel */
+.search-panel-container {
+  display: none;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.search-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.search-counter {
+  font-size: 12px;
+  color: #666;
+  min-width: 80px;
+  text-align: right;
+}
+
+.search-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-checkbox input {
+  cursor: pointer;
+}
+
+.search-btn {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+  min-width: 32px;
+}
+
+.search-btn:hover {
+  background: #f5f5f5;
+}
+
+.search-btn-replace {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+#searchCloseBtn {
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 10px;
+}
+
+.replace-row {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
 /* Markdown Toolbar */
 .md-toolbar {
   display: flex;
