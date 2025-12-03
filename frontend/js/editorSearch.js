@@ -264,7 +264,12 @@ export function initSearch(textareaElement, searchContainerElement) {
  * @param {boolean} replaceMode
  */
 export function openSearch(initialQuery = '', replaceMode = false) {
-  if (!searchContainer || !searchInput) return;
+  console.log('[DEBUG] openSearch called', { initialQuery, replaceMode, hasContainer: !!searchContainer, hasInput: !!searchInput });
+  
+  if (!searchContainer || !searchInput) {
+    console.warn('[DEBUG] openSearch: searchContainer or searchInput is null', { searchContainer: !!searchContainer, searchInput: !!searchInput });
+    return;
+  }
   
   isReplaceMode = replaceMode;
   const replaceRow = searchContainer.querySelector('#replaceRow');
@@ -276,6 +281,7 @@ export function openSearch(initialQuery = '', replaceMode = false) {
   }
   
   searchContainer.style.display = 'block';
+  console.log('[DEBUG] Search panel displayed');
   
   if (initialQuery) {
     searchInput.value = initialQuery;
@@ -286,6 +292,7 @@ export function openSearch(initialQuery = '', replaceMode = false) {
   // User can tab to replace input if needed
   searchInput.focus();
   searchInput.select();
+  console.log('[DEBUG] Search input focused');
 }
 
 /**

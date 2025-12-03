@@ -357,14 +357,30 @@ let previewPane = null;
  */
 function createSearchHotkeyHandler(textareaElement) {
   return (e) => {
+    // Debug: log all keydown events in preview pane
+    if (e.ctrlKey || e.metaKey) {
+      console.log('[DEBUG] Preview pane keydown (Ctrl/Meta):', {
+        key: e.key,
+        code: e.code,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        target: e.target.tagName,
+        targetId: e.target.id
+      });
+    }
+    
     const isMod = e.ctrlKey || e.metaKey;
     if (!isMod) return;
     
     const key = e.key.toLowerCase();
     
     // Ctrl+F -> search
-    if (!e.shiftKey && key === 'f') {
+    if (!e.shiftKey && (key === 'f' || key === 'F')) {
+      console.log('[DEBUG] Ctrl+F detected in preview pane handler, preventing default and opening search');
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       // Get selected text if any (from textarea, not from preview)
       const selectedText = textareaElement.value.substring(
         textareaElement.selectionStart, 
@@ -372,14 +388,20 @@ function createSearchHotkeyHandler(textareaElement) {
       );
       const initialQuery = selectedText.trim() || '';
       import('./editorSearch.js').then(module => {
+        console.log('[DEBUG] Calling openSearch from preview pane with query:', initialQuery);
         module.openSearch(initialQuery, false);
+      }).catch(err => {
+        console.error('[DEBUG] Error importing editorSearch:', err);
       });
       return;
     }
     
     // Ctrl+H -> search and replace
-    if (!e.shiftKey && key === 'h') {
+    if (!e.shiftKey && (key === 'h' || key === 'H')) {
+      console.log('[DEBUG] Ctrl+H detected in preview pane handler, preventing default and opening replace');
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       // Get selected text if any (from textarea, not from preview)
       const selectedText = textareaElement.value.substring(
         textareaElement.selectionStart, 
@@ -387,7 +409,10 @@ function createSearchHotkeyHandler(textareaElement) {
       );
       const initialQuery = selectedText.trim() || '';
       import('./editorSearch.js').then(module => {
+        console.log('[DEBUG] Calling openSearch (replace mode) from preview pane with query:', initialQuery);
         module.openSearch(initialQuery, true);
+      }).catch(err => {
+        console.error('[DEBUG] Error importing editorSearch:', err);
       });
       return;
     }
@@ -395,13 +420,24 @@ function createSearchHotkeyHandler(textareaElement) {
 }
 
 export function setupEditorHotkeys(textarea, previewPaneElement = null) {
-  if (!textarea) return;
+  console.log('[DEBUG] setupEditorHotkeys called', { 
+    textarea: !!textarea, 
+    previewPane: !!previewPaneElement,
+    textareaId: textarea?.id 
+  });
+  
+  if (!textarea) {
+    console.warn('[DEBUG] setupEditorHotkeys: textarea is null, returning');
+    return;
+  }
   
   // Remove previous handlers if exist
   if (editorTextarea && editorHotkeyHandler) {
+    console.log('[DEBUG] Removing previous textarea handler');
     editorTextarea.removeEventListener('keydown', editorHotkeyHandler);
   }
   if (previewPane && previewHotkeyHandler) {
+    console.log('[DEBUG] Removing previous preview pane handler');
     previewPane.removeEventListener('keydown', previewHotkeyHandler);
   }
   
@@ -412,6 +448,19 @@ export function setupEditorHotkeys(textarea, previewPaneElement = null) {
   const searchHandler = createSearchHotkeyHandler(textarea);
   
   editorHotkeyHandler = (e) => {
+    // Debug: log all keydown events in textarea
+    if (e.ctrlKey || e.metaKey) {
+      console.log('[DEBUG] Textarea keydown (Ctrl/Meta):', {
+        key: e.key,
+        code: e.code,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        target: e.target.tagName,
+        targetId: e.target.id
+      });
+    }
+    
     const isMod = e.ctrlKey || e.metaKey;
     
     // Tab / Shift+Tab for list indentation
@@ -513,45 +562,83 @@ export function setupEditorHotkeys(textarea, previewPaneElement = null) {
     }
     
     // Ctrl+F -> search
-    if (!e.shiftKey && key === 'f') {
+    if (!e.shiftKey && (key === 'f' || key === 'F')) {
+      console.log('[DEBUG] Ctrl+F detected in textarea handler, preventing default and opening search');
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       // Get selected text if any
       const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
       const initialQuery = selectedText.trim() || '';
       import('./editorSearch.js').then(module => {
+        console.log('[DEBUG] Calling openSearch with query:', initialQuery);
         module.openSearch(initialQuery, false);
+      }).catch(err => {
+        console.error('[DEBUG] Error importing editorSearch:', err);
       });
       return;
     }
     
     // Ctrl+H -> search and replace
-    if (!e.shiftKey && key === 'h') {
+    if (!e.shiftKey && (key === 'h' || key === 'H')) {
+      console.log('[DEBUG] Ctrl+H detected in textarea handler, preventing default and opening replace');
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       // Get selected text if any
       const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
       const initialQuery = selectedText.trim() || '';
       import('./editorSearch.js').then(module => {
+        console.log('[DEBUG] Calling openSearch (replace mode) with query:', initialQuery);
         module.openSearch(initialQuery, true);
+      }).catch(err => {
+        console.error('[DEBUG] Error importing editorSearch:', err);
       });
       return;
     }
   };
   
-  textarea.addEventListener('keydown', editorHotkeyHandler);
+  console.log('[DEBUG] Adding keydown listener to textarea:', textarea.id);
+  // Use capture phase to intercept events early
+  textarea.addEventListener('keydown', editorHotkeyHandler, true);
+  
+  // Verify handler was added
+  const hasListener = textarea.onkeydown !== null || 
+    (textarea.getEventListeners && textarea.getEventListeners('keydown')?.length > 0);
+  console.log('[DEBUG] Textarea listener added, verification:', { 
+    hasListener: hasListener || 'unknown (getEventListeners not available)',
+    textareaId: textarea.id,
+    textareaInDOM: document.contains(textarea)
+  });
   
   // Also add hotkey handler to preview pane if provided
   // This allows Ctrl+F/H to work when focus is in preview pane
   if (previewPane && previewPane instanceof HTMLElement) {
+    console.log('[DEBUG] Adding keydown listener to preview pane:', previewPane.id);
     previewHotkeyHandler = searchHandler;
-    previewPane.addEventListener('keydown', previewHotkeyHandler);
+    // Use capture phase to intercept events early
+    previewPane.addEventListener('keydown', previewHotkeyHandler, true);
     // Make preview pane focusable for keyboard events
     if (!previewPane.hasAttribute('tabindex')) {
       previewPane.setAttribute('tabindex', '-1');
+      console.log('[DEBUG] Added tabindex="-1" to preview pane');
     }
+    console.log('[DEBUG] Preview pane listener added, verification:', {
+      previewPaneId: previewPane.id,
+      previewPaneInDOM: document.contains(previewPane),
+      hasTabindex: previewPane.hasAttribute('tabindex'),
+      tabindexValue: previewPane.getAttribute('tabindex')
+    });
   } else {
+    console.log('[DEBUG] Preview pane not available or not HTMLElement, skipping handler', {
+      previewPane: !!previewPane,
+      isHTMLElement: previewPane instanceof HTMLElement
+    });
     // Clear preview handler if pane is not available
     previewHotkeyHandler = null;
   }
+  
+  console.log('[DEBUG] setupEditorHotkeys completed');
 }
 
 /**
