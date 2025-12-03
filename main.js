@@ -1,6 +1,7 @@
 // Main Entry Point
 
-import { setupPromptsListEvents, setupHeaderButtons, setupSearch, setupKeyboardShortcuts, handleTelegramAuth } from './frontend/js/events.js';
+import { setupPromptsListEvents, setupHeaderButtons, setupSearch, setupKeyboardShortcuts } from './frontend/js/events.js';
+import { handleTelegramAuth } from './frontend/js/events.js';
 import { checkAuth, loadVersion } from './frontend/js/router.js';
 import { loadPrompts } from './frontend/js/router.js';
 
