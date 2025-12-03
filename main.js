@@ -1,6 +1,6 @@
 // Main Entry Point
 
-import { setupPromptsListEvents, setupHeaderButtons, setupSearch, setupKeyboardShortcuts, setupTelegramLogin, handleTelegramAuth } from './frontend/js/events.js';
+import { setupPromptsListEvents, setupHeaderButtons, setupSearch, setupKeyboardShortcuts, handleTelegramAuth } from './frontend/js/events.js';
 import { checkAuth, loadVersion } from './frontend/js/router.js';
 import { loadPrompts } from './frontend/js/router.js';
 
@@ -15,7 +15,6 @@ function initApp() {
   setupHeaderButtons();
   setupSearch();
   setupKeyboardShortcuts();
-  setupTelegramLogin();
   
   // Check authentication on page load
   checkAuth().then((authenticated) => {
