@@ -48,7 +48,6 @@ export function setupPromptsListEvents() {
         return;
       }
       const prompts = state.getPrompts();
-      const prompts = state.getPrompts();
       const prompt = prompts.find(p => p.slug === slug);
       if (prompt) {
         state.setIsEditMode(true);
@@ -430,7 +429,7 @@ export function setupTelegramLogin() {
 /**
  * Handle Telegram authentication
  */
-async function handleTelegramAuth(user) {
+export async function handleTelegramAuth(user) {
   try {
     const authData = await api.telegramLogin(user);
     console.log('Авторизация успешна:', authData);

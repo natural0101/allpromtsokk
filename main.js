@@ -1,8 +1,11 @@
 // Main Entry Point
 
-import { setupPromptsListEvents, setupHeaderButtons, setupSearch, setupKeyboardShortcuts, setupTelegramLogin } from './frontend/js/events.js';
+import { setupPromptsListEvents, setupHeaderButtons, setupSearch, setupKeyboardShortcuts, setupTelegramLogin, handleTelegramAuth } from './frontend/js/events.js';
 import { checkAuth, loadVersion } from './frontend/js/router.js';
 import { loadPrompts } from './frontend/js/router.js';
+
+// Expose Telegram auth handler globally for Telegram Login Widget
+window.onTelegramAuth = (user) => handleTelegramAuth(user);
 
 /**
  * Initialize application
