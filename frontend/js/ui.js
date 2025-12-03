@@ -4,8 +4,7 @@ import * as state from './state.js';
 import * as api from './api.js';
 import { escapeHtml, highlightText, isCopyPrompt, renderMarkdown, showToast, showDeleteConfirm, getFolderMetadata, hasNestedFolders, showFolderSettings } from './utils.js';
 import { loadPrompts, loadPrompt, loadPromptVersions } from './router.js';
-import { confirmUnsavedChanges } from './editor.js';
-import { setupMarkdownToolbar } from './editor.js';
+import { confirmUnsavedChanges, setupMarkdownToolbar, setupEditorHotkeys } from './editor.js';
 
 /**
  * Build folder tree structure from prompts list
@@ -666,12 +665,24 @@ export function renderEditForm(prompt = null) {
           <div class="md-toolbar">
             <button type="button" data-md="h1">H1</button>
             <button type="button" data-md="h2">H2</button>
+            <button type="button" data-md="h3">H3</button>
+            <button type="button" data-md="h4">H4</button>
+            <span class="md-toolbar-separator">|</span>
             <button type="button" data-md="bold"><b>B</b></button>
             <button type="button" data-md="italic"><i>I</i></button>
+            <button type="button" data-md="underline"><u>U</u></button>
+            <button type="button" data-md="strike"><s>S</s></button>
+            <span class="md-toolbar-separator">|</span>
             <button type="button" data-md="ul">• Список</button>
             <button type="button" data-md="ol">1. Список</button>
-            <button type="button" data-md="quote">" Цитата</button>
-            <button type="button" data-md="code">code</button>
+            <button type="button" data-md="checklist">☑ Чеклист</button>
+            <span class="md-toolbar-separator">|</span>
+            <button type="button" data-md="quote">“ Цитата</button>
+            <button type="button" data-md="code-inline">`code`</button>
+            <button type="button" data-md="code-block">```</button>
+            <span class="md-toolbar-separator">|</span>
+            <button type="button" data-md="link">🔗 Ссылка</button>
+            <button type="button" data-md="table">▦ Таблица</button>
           </div>
           <textarea 
             id="promptTextInput"
@@ -713,6 +724,7 @@ export function renderEditForm(prompt = null) {
   const tagsInput = document.getElementById('promptTagsInput');
   
   setupMarkdownToolbar(textInput);
+  setupEditorHotkeys(textInput);
   
   // Import editor functions dynamically to avoid circular dependency
   import('./editor.js').then(editorModule => {
