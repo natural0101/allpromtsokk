@@ -434,11 +434,18 @@ export async function handleTelegramAuth(user) {
     const authData = await api.telegramLogin(user);
     console.log('Авторизация успешна:', authData);
     
-    state.setCurrentUser(authData.user);
+    const userData = authData.user;
+    state.setCurrentUser(userData);
     
-    showMainApp();
-    updateUIPermissions();
-    await loadPrompts();
+    if (userData && userData.status === 'active') {
+      state.setIsAuthenticated(true);
+      showMainApp();
+      updateUIPermissions();
+      await loadPrompts();
+    } else {
+      state.setIsAuthenticated(false);
+      showPendingScreen();
+    }
   } catch (error) {
     console.error('Ошибка авторизации:', error);
     alert('Ошибка авторизации. Попробуйте снова.');
