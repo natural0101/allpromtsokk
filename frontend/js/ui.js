@@ -827,6 +827,11 @@ export function renderEditForm(prompt = null) {
       // Initialize bracket highlighting
       const { initBracketHighlighting } = await import('./editorBrackets.js');
       initBracketHighlighting(textInput);
+      
+      // Initialize image paste and drag&drop
+      const { initImagePaste, initImageDragAndDrop } = await import('./editorImages.js');
+      initImagePaste(textInput);
+      initImageDragAndDrop(textInput);
     }
     
     // Setup mode switcher
@@ -955,13 +960,16 @@ export function renderEditForm(prompt = null) {
       const { cleanupEditorProtection } = await import('./editor.js');
       cleanupEditorProtection();
       
-      // Cleanup outline, search, and bracket highlighting
+      // Cleanup outline, search, bracket highlighting, and image handlers
       const { destroyOutline } = await import('./editorOutline.js');
       const { destroySearch } = await import('./editorSearch.js');
       const { destroyBracketHighlighting } = await import('./editorBrackets.js');
+      const { destroyImagePaste, destroyImageDragAndDrop } = await import('./editorImages.js');
       destroyOutline();
       destroySearch();
       destroyBracketHighlighting();
+      destroyImagePaste();
+      destroyImageDragAndDrop();
       
       state.setHasUnsavedChanges(false);
       state.setOriginalFormData(null);

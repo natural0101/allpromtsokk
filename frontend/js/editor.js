@@ -137,6 +137,35 @@ export function insertMarkdown(textarea, type) {
       newCursorEnd = newCursorStart + inner.length;
     }
   };
+}
+
+/**
+ * Insert text at cursor position in textarea
+ * @param {HTMLTextAreaElement} textarea
+ * @param {string} textToInsert
+ * @param {boolean} addNewlineAfter - add newline after inserted text
+ */
+export function insertAtCursor(textarea, textToInsert, addNewlineAfter = false) {
+  if (!textarea) return;
+  
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  
+  const insertText = addNewlineAfter ? textToInsert + '\n' : textToInsert;
+  const newText = text.slice(0, start) + insertText + text.slice(end);
+  
+  textarea.value = newText;
+  
+  // Set cursor position after inserted text
+  const newCursorPos = start + insertText.length;
+  textarea.setSelectionRange(newCursorPos, newCursorPos);
+  
+  // Trigger input event for autosave and other handlers
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  
+  // Focus textarea
+  textarea.focus();
   
   switch (type) {
     case 'h1':
@@ -788,9 +817,13 @@ export function cleanupEditorProtection() {
   currentPromptId = null;
   originalText = '';
   
-  // Also cleanup outline, search, and bracket highlighting
+  // Also cleanup outline, search, bracket highlighting, and image handlers
   import('./editorOutline.js').then(m => m.destroyOutline()).catch(() => {});
   import('./editorSearch.js').then(m => m.destroySearch()).catch(() => {});
   import('./editorBrackets.js').then(m => m.destroyBracketHighlighting()).catch(() => {});
+  import('./editorImages.js').then(m => {
+    m.destroyImagePaste();
+    m.destroyImageDragAndDrop();
+  }).catch(() => {});
 }
 
