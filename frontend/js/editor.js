@@ -540,27 +540,44 @@ export function setupEditorHotkeys(textarea, previewPaneElement = null) {
   textarea.addEventListener('keydown', editorHotkeyHandler);
   
   // Also add hotkey handler to preview pane if provided
-  if (previewPane) {
+  // This allows Ctrl+F/H to work when focus is in preview pane
+  if (previewPane && previewPane instanceof HTMLElement) {
     previewHotkeyHandler = searchHandler;
     previewPane.addEventListener('keydown', previewHotkeyHandler);
     // Make preview pane focusable for keyboard events
     if (!previewPane.hasAttribute('tabindex')) {
       previewPane.setAttribute('tabindex', '-1');
     }
+  } else {
+    // Clear preview handler if pane is not available
+    previewHotkeyHandler = null;
   }
 }
 
 /**
- * Cleanup editor hotkeys
+ * Cleanup editor hotkeys (idempotent - safe to call multiple times)
  */
 export function cleanupEditorHotkeys() {
+  // Cleanup textarea handler
   if (editorTextarea && editorHotkeyHandler) {
-    editorTextarea.removeEventListener('keydown', editorHotkeyHandler);
+    try {
+      editorTextarea.removeEventListener('keydown', editorHotkeyHandler);
+    } catch (e) {
+      // Ignore errors if element is no longer in DOM
+      console.warn('Error removing textarea hotkey handler:', e);
+    }
     editorHotkeyHandler = null;
     editorTextarea = null;
   }
+  
+  // Cleanup preview pane handler
   if (previewPane && previewHotkeyHandler) {
-    previewPane.removeEventListener('keydown', previewHotkeyHandler);
+    try {
+      previewPane.removeEventListener('keydown', previewHotkeyHandler);
+    } catch (e) {
+      // Ignore errors if element is no longer in DOM
+      console.warn('Error removing preview pane hotkey handler:', e);
+    }
     previewHotkeyHandler = null;
     previewPane = null;
   }

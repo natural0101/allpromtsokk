@@ -4,7 +4,7 @@ import * as state from './state.js';
 import * as api from './api.js';
 import { escapeHtml, highlightText, isCopyPrompt, renderMarkdown, showToast, showDeleteConfirm, getFolderMetadata, hasNestedFolders, showFolderSettings } from './utils.js';
 import { loadPrompts, loadPrompt, loadPromptVersions } from './router.js';
-import { confirmUnsavedChanges, setupMarkdownToolbar, setupEditorHotkeys } from './editor.js';
+import { confirmUnsavedChanges, setupMarkdownToolbar } from './editor.js';
 
 /**
  * Build folder tree structure from prompts list
@@ -753,9 +753,6 @@ export function renderEditForm(prompt = null) {
   // Setup editor preview and mode switching
   const editorPane = document.getElementById('editorPane');
   const previewPane = document.getElementById('previewPane');
-  
-  // Setup editor hotkeys (also handle preview pane for Ctrl+F/H)
-  setupEditorHotkeys(textInput, previewPane);
   const previewContainer = document.getElementById('previewContainer');
   const modeButtons = document.querySelectorAll('.mode-btn');
   
@@ -772,7 +769,8 @@ export function renderEditForm(prompt = null) {
       cleanupEditorProtection,
       shouldRestoreDraft,
       restoreDraft,
-      clearDraft
+      clearDraft,
+      setupEditorHotkeys
     } = editorModule;
     
     // Get prompt ID for draft management
@@ -807,6 +805,12 @@ export function renderEditForm(prompt = null) {
     // Setup preview functionality
     if (textInput && previewContainer && editorPane && previewPane) {
       setupEditorPreview(textInput, previewContainer, editorPane, previewPane);
+    }
+    
+    // Setup editor hotkeys (also handle preview pane for Ctrl+F/H)
+    // Must be called after DOM is ready and all elements are available
+    if (textInput) {
+      setupEditorHotkeys(textInput, previewPane);
     }
     
     // Setup outline, search, and bracket highlighting
@@ -872,6 +876,13 @@ export function renderEditForm(prompt = null) {
         // Switch editor mode
         if (textInput && editorPane && previewPane && previewContainer) {
           switchEditorMode(mode, textInput, editorPane, previewPane, previewContainer);
+          
+          // Update hotkey handlers when switching modes
+          // This ensures preview pane handler is added/removed correctly
+          const currentPreviewPane = document.getElementById('previewPane');
+          if (textInput) {
+            setupEditorHotkeys(textInput, currentPreviewPane);
+          }
           
           // Show/hide outline based on mode (show in split-view and preview modes)
           const outlineContainer = document.getElementById('editorOutline');
