@@ -200,8 +200,37 @@ export function renderMarkdown(markdown) {
   }
   
   try {
-    // Используем marked для парсинга Markdown
-    return marked.parse(markdown);
+    // Настройка marked для поддержки data:URL и других особенностей
+    // Для marked v11+ используем новый API с опциями
+    const markedOptions = {
+      breaks: true, // Преобразует \n в <br>
+      gfm: true, // GitHub Flavored Markdown
+      headerIds: false, // Отключаем автоматические ID для заголовков
+      mangle: false, // Не обфусцируем email адреса
+    };
+    
+    // Настраиваем renderer для изображений, чтобы разрешить data:URL
+    const renderer = new marked.Renderer();
+    const originalImage = renderer.image.bind(renderer);
+    
+    renderer.image = function(href, title, text) {
+      // Разрешаем data:URL и обычные URL
+      if (href && (href.startsWith('data:') || href.startsWith('http://') || href.startsWith('https://') || href.startsWith('/'))) {
+        let out = '<img src="' + escapeHtml(href) + '" alt="' + escapeHtml(text || '') + '"';
+        if (title) {
+          out += ' title="' + escapeHtml(title) + '"';
+        }
+        out += '>';
+        return out;
+      }
+      // Для других случаев используем стандартный рендер
+      return originalImage(href, title, text);
+    };
+    
+    markedOptions.renderer = renderer;
+    
+    // Используем marked для парсинга Markdown с нашими настройками
+    return marked.parse(markdown, markedOptions);
   } catch (error) {
     console.error('Error rendering markdown:', error);
     // В случае ошибки возвращаем экранированный текст

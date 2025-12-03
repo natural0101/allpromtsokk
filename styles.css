@@ -1240,6 +1240,14 @@ mark {
   color: var(--brandInk);
 }
 
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+  border-radius: 4px;
+}
+
 .markdown-content table {
   border-collapse: collapse;
   width: 100%;
