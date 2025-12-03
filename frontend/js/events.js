@@ -234,7 +234,7 @@ export function setupHeaderButtons() {
   const logoutFromPendingBtn = document.getElementById('logoutFromPendingBtn');
 
   if (newPromptBtn) {
-    newPromptBtn.addEventListener('click', () => {
+    newPromptBtn.addEventListener('click', async () => {
       if (state.getIsEditMode() && !confirmUnsavedChanges()) {
         return;
       }
