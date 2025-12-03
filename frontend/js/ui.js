@@ -677,9 +677,9 @@ export function renderEditForm(prompt = null) {
             <button type="button" data-md="ol">1. Список</button>
             <button type="button" data-md="checklist">☑ Чеклист</button>
             <span class="md-toolbar-separator">|</span>
-            <button type="button" data-md="quote">“ Цитата</button>
-            <button type="button" data-md="code-inline">`code`</button>
-            <button type="button" data-md="code-block">```</button>
+            <button type="button" data-md="quote">" Цитата</button>
+            <button type="button" data-md="code-inline">code</button>
+            <button type="button" data-md="code-block">Code</button>
             <span class="md-toolbar-separator">|</span>
             <button type="button" data-md="link">🔗 Ссылка</button>
             <button type="button" data-md="table">▦ Таблица</button>
