@@ -30,45 +30,6 @@
                 data-onauth="onTelegramAuth(user)">
         </script>
       </div>
-      <script>
-        // Глобальный обработчик для Telegram Login Widget
-        // Универсальная точка входа, чтобы виджет всегда находил функцию.
-        window.onTelegramAuth = async function (user) {
-          console.log('TG CALLBACK DATA (global):', user);
-          
-          if (window.handleTelegramAuthFromApp && typeof window.handleTelegramAuthFromApp === 'function') {
-            try {
-              await window.handleTelegramAuthFromApp(user);
-              return;
-            } catch (e) {
-              console.error('App handleTelegramAuthFromApp error, fallback to direct fetch:', e);
-            }
-          }
-          
-          try {
-            const res = await fetch('/api/auth/telegram', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify(user),
-            });
-            
-            const text = await res.text();
-            console.log('AUTH RESPONSE (fallback) STATUS:', res.status);
-            console.log('AUTH RESPONSE (fallback) BODY:', text);
-            
-            if (!res.ok) {
-              alert('Ошибка авторизации через Telegram');
-              return;
-            }
-            
-            location.reload();
-          } catch (e) {
-            console.error('AUTH ERROR (fallback):', e);
-            alert('Сетевая ошибка авторизации через Telegram');
-          }
-        };
-      </script>
     </div>
   </div>
 

@@ -404,12 +404,14 @@ export function setupKeyboardShortcuts() {
  * Handle Telegram authentication
  */
 export async function handleTelegramAuth(user) {
+  console.log('TG CALLBACK DATA (global):', user);
+  
   try {
     const authData = await api.telegramLogin(user);
-    console.log('Авторизация успешна:', authData);
+    console.log('AUTH RESPONSE:', authData);
     
-    const userData = authData.user;
-    state.setCurrentUser(userData);
+    const userData = authData?.user;
+    state.setCurrentUser(userData || null);
     
     if (userData && userData.status === 'active') {
       state.setIsAuthenticated(true);
@@ -421,8 +423,8 @@ export async function handleTelegramAuth(user) {
       showPendingScreen();
     }
   } catch (error) {
-    console.error('Ошибка авторизации:', error);
-    alert('Ошибка авторизации. Попробуйте снова.');
+    console.error('Ошибка авторизации через Telegram:', error);
+    alert('Ошибка авторизации. Попробуйте ещё раз.');
   }
 }
 
