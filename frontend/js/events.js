@@ -272,6 +272,36 @@ export function setupHeaderButtons() {
 }
 
 /**
+ * Setup login screen events (password login)
+ */
+export function setupLoginScreenEvents() {
+  const toggleBtn = document.getElementById('passwordLoginToggleBtn');
+  const form = document.getElementById('passwordLoginForm');
+  const loginInput = document.getElementById('passwordLoginInput');
+  const passwordInput = document.getElementById('passwordLoginPassword');
+
+  if (!toggleBtn || !form) return;
+
+  toggleBtn.addEventListener('click', () => {
+    const isVisible = form.style.display === 'block';
+    form.style.display = isVisible ? 'none' : 'block';
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const login = loginInput?.value.trim() || '';
+    const password = passwordInput?.value || '';
+
+    if (!login || !password) {
+      alert('Введите логин и пароль');
+      return;
+    }
+
+    await handlePasswordLogin(login, password);
+  });
+}
+
+/**
  * Setup search and filters
  */
 export function setupSearch() {
@@ -425,6 +455,32 @@ export async function handleTelegramAuth(user) {
   } catch (error) {
     console.error('Ошибка авторизации через Telegram:', error);
     alert('Ошибка авторизации. Попробуйте ещё раз.');
+  }
+}
+
+/**
+ * Handle password-based authentication
+ */
+export async function handlePasswordLogin(login, password) {
+  try {
+    const authData = await api.passwordLogin({ login, password });
+    console.log('PASSWORD AUTH RESPONSE:', authData);
+
+    const userData = authData?.user;
+    state.setCurrentUser(userData || null);
+
+    if (userData && userData.status === 'active') {
+      state.setIsAuthenticated(true);
+      showMainApp();
+      updateUIPermissions();
+      await loadPrompts();
+    } else {
+      state.setIsAuthenticated(false);
+      showPendingScreen();
+    }
+  } catch (error) {
+    console.error('Ошибка входа по паролю:', error);
+    alert(error.message || 'Ошибка входа по паролю. Попробуйте ещё раз.');
   }
 }
 

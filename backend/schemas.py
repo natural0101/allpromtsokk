@@ -66,6 +66,11 @@ class AuthResponse(BaseModel):
     user: AuthUser
 
 
+class PasswordLoginRequest(BaseModel):
+    login: str
+    password: str
+
+
 class PromptBase(BaseModel):
     name: str
     text: str

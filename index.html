@@ -30,6 +30,32 @@
                 data-onauth="onTelegramAuth(user)">
         </script>
       </div>
+      <div class="login-alt-container">
+        <button id="passwordLoginToggleBtn" class="btn" style="margin-top: 16px;">
+          Технический вход
+        </button>
+        <form id="passwordLoginForm" class="modal-form" style="margin-top: 12px; display: none;">
+          <input
+            id="passwordLoginInput"
+            type="text"
+            class="modal-input"
+            placeholder="Логин"
+            autocomplete="username"
+            style="margin-bottom: 8px;"
+          />
+          <input
+            id="passwordLoginPassword"
+            type="password"
+            class="modal-input"
+            placeholder="Пароль"
+            autocomplete="current-password"
+            style="margin-bottom: 8px;"
+          />
+          <button type="submit" class="btn" style="width: 100%;">
+            Войти по паролю
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 

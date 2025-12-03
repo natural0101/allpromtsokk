@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_NAME: str = "autookk_bot"
     TELEGRAM_BOT_TOKEN: str = ""  # Токен бота для проверки подписи (получить у @BotFather)
     
+    # Статический логин/пароль для технического входа
+    STATIC_LOGIN: str = ""
+    STATIC_PASSWORD_HASH: str = ""
+    
     # Сессии
     SESSION_COOKIE_NAME: str = "session_token"
     SESSION_EXPIRES_DAYS: int = 30

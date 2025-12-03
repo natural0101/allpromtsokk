@@ -12,11 +12,12 @@ from ..auth_crud import (
 )
 from ..db import get_db
 from ..dependencies import get_current_user
-from ..schemas import TelegramAuthData, UserOut, AuthResponse
+from ..schemas import TelegramAuthData, UserOut, AuthResponse, PasswordLoginRequest
 from ..models import User
 from ..settings import settings
 from ..utils import verify_telegram_auth
 from pydantic import ValidationError
+import bcrypt
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -98,6 +99,108 @@ async def telegram_auth(
         path="/",
     )
     
+    return {
+        "token": session.token,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "role": user.role,
+            "status": user.status,
+            "access_level": user.access_level,
+        }
+    }
+
+
+@router.post("/password", response_model=AuthResponse)
+async def password_auth(
+    data: PasswordLoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """
+    Авторизация по статическому логину и паролю.
+    Используется для технического/админского входа.
+    """
+    # Проверяем, что статический логин/пароль настроены
+    if not settings.STATIC_LOGIN or not settings.STATIC_PASSWORD_HASH:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Static login/password not configured",
+        )
+
+    # Проверяем логин
+    if data.login != settings.STATIC_LOGIN:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid login or password",
+        )
+
+    # Проверяем пароль через bcrypt
+    try:
+        password_ok = bcrypt.checkpw(
+            data.password.encode("utf-8"),
+            settings.STATIC_PASSWORD_HASH.encode("utf-8"),
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Static password hash invalid",
+        )
+
+    if not password_ok:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid login or password",
+        )
+
+    # Ищем или создаём пользователя для статического входа
+    static_username = "root_static_admin"
+    user = db.query(User).filter(User.username == static_username).first()
+
+    if not user:
+        # Создаём пользователя с максимальными правами
+        user = create_user(
+            db,
+            telegram_id=0,
+            username=static_username,
+            first_name=None,
+            last_name=None,
+        )
+        user.status = "active"
+        user.role = "admin"
+        user.access_level = "admin"
+        db.commit()
+        db.refresh(user)
+    else:
+        # Гарантируем, что у пользователя максимальные права
+        updated = False
+        if user.status != "active":
+            user.status = "active"
+            updated = True
+        if getattr(user, "role", None) != "admin":
+            user.role = "admin"
+            updated = True
+        if user.access_level != "admin":
+            user.access_level = "admin"
+            updated = True
+        if updated:
+            db.commit()
+            db.refresh(user)
+
+    user = update_user_login_time(db, user)
+    session = create_session(db, user_id=user.id)
+
+    # Устанавливаем cookie с токеном
+    response.set_cookie(
+        key=settings.SESSION_COOKIE_NAME,
+        value=session.token,
+        httponly=settings.cookie_httponly,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=settings.SESSION_EXPIRES_DAYS * 24 * 60 * 60,  # в секундах
+        path="/",
+    )
+
     return {
         "token": session.token,
         "user": {

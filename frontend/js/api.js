@@ -224,6 +224,40 @@ export async function telegramLogin(user) {
   }
 }
 
+export async function passwordLogin(credentials) {
+  try {
+    const response = await fetch(`${API_BASE}/auth/password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        login: credentials.login,
+        password: credentials.password,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorDetail = 'Ошибка входа по паролю';
+      try {
+        const errorBody = await response.json();
+        if (errorBody && errorBody.detail) {
+          errorDetail = errorBody.detail;
+        }
+      } catch {
+        // ignore parse errors
+      }
+      throw new Error(errorDetail);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Ошибка входа по паролю:', error);
+    throw error;
+  }
+}
+
 export async function logout() {
   try {
     await fetch(`${API_BASE}/auth/logout`, {

@@ -20,6 +20,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     PUBLIC_ROUTES = [
         "/api/health",
         "/api/auth/telegram",
+        "/api/auth/password",
         "/api/auth/logout",
         "/docs",
         "/openapi.json",

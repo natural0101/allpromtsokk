@@ -6,6 +6,7 @@ import {
   setupSearch,
   setupKeyboardShortcuts,
   handleTelegramAuth,
+  setupLoginScreenEvents,
 } from './frontend/js/events.js';
 import { checkAuth, loadVersion, loadPrompts } from './frontend/js/router.js';
 
@@ -16,6 +17,7 @@ window.onTelegramAuth = (user) => handleTelegramAuth(user);
  * Initialize application
  */
 function initApp() {
+  setupLoginScreenEvents();
   setupPromptsListEvents();
   setupHeaderButtons();
   setupSearch();
