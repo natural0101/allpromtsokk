@@ -807,18 +807,11 @@ export function renderEditForm(prompt = null) {
       setupEditorPreview(textInput, previewContainer, editorPane, previewPane);
     }
     
-    // Setup editor hotkeys (also handle preview pane for Ctrl+F/H)
+    // Setup editor hotkeys
+    // Note: Ctrl+F/H are handled globally in setupKeyboardShortcuts (events.js)
     // Must be called after DOM is ready and all elements are available
-    console.log('[DEBUG] ui.js: About to call setupEditorHotkeys', { 
-      hasTextInput: !!textInput, 
-      hasPreviewPane: !!previewPane,
-      textInputId: textInput?.id,
-      previewPaneId: previewPane?.id
-    });
     if (textInput) {
       setupEditorHotkeys(textInput, previewPane);
-    } else {
-      console.warn('[DEBUG] ui.js: textInput is null, cannot setup hotkeys');
     }
     
     // Setup outline, search, and bracket highlighting

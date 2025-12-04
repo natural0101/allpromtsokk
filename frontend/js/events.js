@@ -408,12 +408,106 @@ export function setupSearch() {
 }
 
 /**
+ * Check if focus is in a regular input/textarea (not editor)
+ * @param {HTMLElement} target
+ * @returns {boolean}
+ */
+function isRegularInput(target) {
+  if (!target) return false;
+  
+  // Editor elements are exceptions - they should use custom search
+  const editorTextarea = document.getElementById('promptTextInput');
+  const previewPane = document.getElementById('previewPane');
+  const editorPane = document.getElementById('editorPane');
+  
+  // Check if target is inside editor area (textarea, preview pane, or editor pane)
+  if (editorTextarea && (target === editorTextarea || editorTextarea.contains(target))) {
+    return false; // This is editor textarea
+  }
+  
+  if (previewPane && (target === previewPane || previewPane.contains(target))) {
+    return false; // This is preview pane
+  }
+  
+  if (editorPane && editorPane.contains(target)) {
+    return false; // Inside editor pane
+  }
+  
+  // Check if it's a regular input/textarea (outside editor)
+  const tagName = target.tagName.toLowerCase();
+  if (tagName === 'input' || tagName === 'textarea') {
+    return true; // Regular input/textarea outside editor - don't intercept
+  }
+  
+  // For other elements (divs, spans, etc.), check if they are inside a regular input/textarea
+  // by walking up the DOM tree
+  let current = target.parentElement;
+  while (current) {
+    const currentTag = current.tagName.toLowerCase();
+    if (currentTag === 'input' || currentTag === 'textarea') {
+      // Found an input/textarea ancestor - check if it's part of editor
+      if (editorTextarea && (current === editorTextarea || editorTextarea.contains(current))) {
+        return false; // Part of editor
+      }
+      if (previewPane && previewPane.contains(current)) {
+        return false; // Part of preview pane
+      }
+      if (editorPane && editorPane.contains(current)) {
+        return false; // Part of editor pane
+      }
+      return true; // Regular input/textarea ancestor - don't intercept
+    }
+    current = current.parentElement;
+  }
+  
+  // Not inside any input/textarea, so we can intercept (for editor areas and other content)
+  return false;
+}
+
+/**
  * Setup keyboard shortcuts
  */
 export function setupKeyboardShortcuts() {
   document.addEventListener('keydown', async (e) => {
+    const isMod = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
+    
+    // Ctrl+F or Cmd+F - open search panel
+    if (isMod && !e.shiftKey && !e.altKey && key === 'f') {
+      // Don't intercept if focus is in regular input/textarea (login, search in list, etc.)
+      if (isRegularInput(e.target)) {
+        return; // Let browser handle it
+      }
+      
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Import and open search panel in find mode
+      const { openSearchPanel } = await import('./editorSearch.js');
+      openSearchPanel('find');
+      return;
+    }
+    
+    // Ctrl+H or Cmd+H - open search panel in replace mode
+    if (isMod && !e.shiftKey && !e.altKey && key === 'h') {
+      // Don't intercept if focus is in regular input/textarea
+      if (isRegularInput(e.target)) {
+        return; // Let browser handle it
+      }
+      
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Import and open search panel in replace mode
+      const { openSearchPanel } = await import('./editorSearch.js');
+      openSearchPanel('replace');
+      return;
+    }
+    
     // Ctrl+S or Cmd+S - save prompt
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if (isMod && key === 's') {
       e.preventDefault();
       if (state.getIsEditMode()) {
         const textInput = document.getElementById('promptTextInput');

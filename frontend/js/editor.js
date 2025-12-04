@@ -350,117 +350,24 @@ let editorTextarea = null;
 let previewHotkeyHandler = null;
 let previewPane = null;
 
-/**
- * Create hotkey handler for search/replace
- * @param {HTMLTextAreaElement} textareaElement
- * @returns {Function}
- */
-function createSearchHotkeyHandler(textareaElement) {
-  return (e) => {
-    // Debug: log all keydown events in preview pane
-    if (e.ctrlKey || e.metaKey) {
-      console.log('[DEBUG] Preview pane keydown (Ctrl/Meta):', {
-        key: e.key,
-        code: e.code,
-        ctrlKey: e.ctrlKey,
-        metaKey: e.metaKey,
-        shiftKey: e.shiftKey,
-        target: e.target.tagName,
-        targetId: e.target.id
-      });
-    }
-    
-    const isMod = e.ctrlKey || e.metaKey;
-    if (!isMod) return;
-    
-    const key = e.key.toLowerCase();
-    
-    // Ctrl+F -> search
-    if (!e.shiftKey && (key === 'f' || key === 'F')) {
-      console.log('[DEBUG] Ctrl+F detected in preview pane handler, preventing default and opening search');
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      // Get selected text if any (from textarea, not from preview)
-      const selectedText = textareaElement.value.substring(
-        textareaElement.selectionStart, 
-        textareaElement.selectionEnd
-      );
-      const initialQuery = selectedText.trim() || '';
-      import('./editorSearch.js').then(module => {
-        console.log('[DEBUG] Calling openSearch from preview pane with query:', initialQuery);
-        module.openSearch(initialQuery, false);
-      }).catch(err => {
-        console.error('[DEBUG] Error importing editorSearch:', err);
-      });
-      return;
-    }
-    
-    // Ctrl+H -> search and replace
-    if (!e.shiftKey && (key === 'h' || key === 'H')) {
-      console.log('[DEBUG] Ctrl+H detected in preview pane handler, preventing default and opening replace');
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      // Get selected text if any (from textarea, not from preview)
-      const selectedText = textareaElement.value.substring(
-        textareaElement.selectionStart, 
-        textareaElement.selectionEnd
-      );
-      const initialQuery = selectedText.trim() || '';
-      import('./editorSearch.js').then(module => {
-        console.log('[DEBUG] Calling openSearch (replace mode) from preview pane with query:', initialQuery);
-        module.openSearch(initialQuery, true);
-      }).catch(err => {
-        console.error('[DEBUG] Error importing editorSearch:', err);
-      });
-      return;
-    }
-  };
-}
+// Note: Ctrl+F and Ctrl+H are now handled globally in setupKeyboardShortcuts (events.js)
+// The createSearchHotkeyHandler function has been removed as it's no longer needed
 
 export function setupEditorHotkeys(textarea, previewPaneElement = null) {
-  console.log('[DEBUG] setupEditorHotkeys called', { 
-    textarea: !!textarea, 
-    previewPane: !!previewPaneElement,
-    textareaId: textarea?.id 
-  });
-  
-  if (!textarea) {
-    console.warn('[DEBUG] setupEditorHotkeys: textarea is null, returning');
-    return;
-  }
+  if (!textarea) return;
   
   // Remove previous handlers if exist
   if (editorTextarea && editorHotkeyHandler) {
-    console.log('[DEBUG] Removing previous textarea handler');
     editorTextarea.removeEventListener('keydown', editorHotkeyHandler);
   }
   if (previewPane && previewHotkeyHandler) {
-    console.log('[DEBUG] Removing previous preview pane handler');
     previewPane.removeEventListener('keydown', previewHotkeyHandler);
   }
   
   editorTextarea = textarea;
   previewPane = previewPaneElement;
   
-  // Create shared hotkey handler
-  const searchHandler = createSearchHotkeyHandler(textarea);
-  
   editorHotkeyHandler = (e) => {
-    // Debug: log all keydown events in textarea
-    if (e.ctrlKey || e.metaKey) {
-      console.log('[DEBUG] Textarea keydown (Ctrl/Meta):', {
-        key: e.key,
-        code: e.code,
-        ctrlKey: e.ctrlKey,
-        metaKey: e.metaKey,
-        shiftKey: e.shiftKey,
-        target: e.target.tagName,
-        targetId: e.target.id
-      });
-    }
-    
     const isMod = e.ctrlKey || e.metaKey;
     
     // Tab / Shift+Tab for list indentation
@@ -561,84 +468,23 @@ export function setupEditorHotkeys(textarea, previewPaneElement = null) {
       return;
     }
     
-    // Ctrl+F -> search
-    if (!e.shiftKey && (key === 'f' || key === 'F')) {
-      console.log('[DEBUG] Ctrl+F detected in textarea handler, preventing default and opening search');
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      // Get selected text if any
-      const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
-      const initialQuery = selectedText.trim() || '';
-      import('./editorSearch.js').then(module => {
-        console.log('[DEBUG] Calling openSearch with query:', initialQuery);
-        module.openSearch(initialQuery, false);
-      }).catch(err => {
-        console.error('[DEBUG] Error importing editorSearch:', err);
-      });
-      return;
-    }
-    
-    // Ctrl+H -> search and replace
-    if (!e.shiftKey && (key === 'h' || key === 'H')) {
-      console.log('[DEBUG] Ctrl+H detected in textarea handler, preventing default and opening replace');
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      // Get selected text if any
-      const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
-      const initialQuery = selectedText.trim() || '';
-      import('./editorSearch.js').then(module => {
-        console.log('[DEBUG] Calling openSearch (replace mode) with query:', initialQuery);
-        module.openSearch(initialQuery, true);
-      }).catch(err => {
-        console.error('[DEBUG] Error importing editorSearch:', err);
-      });
-      return;
-    }
+    // Note: Ctrl+F and Ctrl+H are now handled globally in setupKeyboardShortcuts (events.js)
+    // They are not handled here to avoid conflicts
   };
   
-  console.log('[DEBUG] Adding keydown listener to textarea:', textarea.id);
-  // Use capture phase to intercept events early
-  textarea.addEventListener('keydown', editorHotkeyHandler, true);
+  textarea.addEventListener('keydown', editorHotkeyHandler);
   
-  // Verify handler was added
-  const hasListener = textarea.onkeydown !== null || 
-    (textarea.getEventListeners && textarea.getEventListeners('keydown')?.length > 0);
-  console.log('[DEBUG] Textarea listener added, verification:', { 
-    hasListener: hasListener || 'unknown (getEventListeners not available)',
-    textareaId: textarea.id,
-    textareaInDOM: document.contains(textarea)
-  });
-  
-  // Also add hotkey handler to preview pane if provided
-  // This allows Ctrl+F/H to work when focus is in preview pane
+  // Note: Preview pane no longer needs a separate handler for Ctrl+F/H
+  // These are now handled globally in setupKeyboardShortcuts (events.js)
+  // But we still make preview pane focusable for other interactions
   if (previewPane && previewPane instanceof HTMLElement) {
-    console.log('[DEBUG] Adding keydown listener to preview pane:', previewPane.id);
-    previewHotkeyHandler = searchHandler;
-    // Use capture phase to intercept events early
-    previewPane.addEventListener('keydown', previewHotkeyHandler, true);
-    // Make preview pane focusable for keyboard events
     if (!previewPane.hasAttribute('tabindex')) {
       previewPane.setAttribute('tabindex', '-1');
-      console.log('[DEBUG] Added tabindex="-1" to preview pane');
     }
-    console.log('[DEBUG] Preview pane listener added, verification:', {
-      previewPaneId: previewPane.id,
-      previewPaneInDOM: document.contains(previewPane),
-      hasTabindex: previewPane.hasAttribute('tabindex'),
-      tabindexValue: previewPane.getAttribute('tabindex')
-    });
+    previewHotkeyHandler = null; // No longer needed
   } else {
-    console.log('[DEBUG] Preview pane not available or not HTMLElement, skipping handler', {
-      previewPane: !!previewPane,
-      isHTMLElement: previewPane instanceof HTMLElement
-    });
-    // Clear preview handler if pane is not available
     previewHotkeyHandler = null;
   }
-  
-  console.log('[DEBUG] setupEditorHotkeys completed');
 }
 
 /**
@@ -657,17 +503,10 @@ export function cleanupEditorHotkeys() {
     editorTextarea = null;
   }
   
-  // Cleanup preview pane handler
-  if (previewPane && previewHotkeyHandler) {
-    try {
-      previewPane.removeEventListener('keydown', previewHotkeyHandler);
-    } catch (e) {
-      // Ignore errors if element is no longer in DOM
-      console.warn('Error removing preview pane hotkey handler:', e);
-    }
-    previewHotkeyHandler = null;
-    previewPane = null;
-  }
+  // Note: Preview pane no longer has a separate hotkey handler
+  // Ctrl+F/H are handled globally in setupKeyboardShortcuts (events.js)
+  previewHotkeyHandler = null;
+  previewPane = null;
 }
 
 /**

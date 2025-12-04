@@ -260,28 +260,26 @@ export function initSearch(textareaElement, searchContainerElement) {
 
 /**
  * Open search panel
- * @param {string} initialQuery
- * @param {boolean} replaceMode
+ * @param {string} initialQuery - Initial search query (can be empty)
+ * @param {boolean|string} replaceMode - If true or "replace", shows replace panel. If false or "find", shows only search.
  */
 export function openSearch(initialQuery = '', replaceMode = false) {
-  console.log('[DEBUG] openSearch called', { initialQuery, replaceMode, hasContainer: !!searchContainer, hasInput: !!searchInput });
-  
   if (!searchContainer || !searchInput) {
-    console.warn('[DEBUG] openSearch: searchContainer or searchInput is null', { searchContainer: !!searchContainer, searchInput: !!searchInput });
     return;
   }
   
-  isReplaceMode = replaceMode;
+  // Support both boolean and string mode
+  const isReplace = replaceMode === true || replaceMode === 'replace';
+  isReplaceMode = isReplace;
   const replaceRow = searchContainer.querySelector('#replaceRow');
   
-  if (replaceMode && replaceRow) {
+  if (isReplace && replaceRow) {
     replaceRow.style.display = 'flex';
   } else if (replaceRow) {
     replaceRow.style.display = 'none';
   }
   
   searchContainer.style.display = 'block';
-  console.log('[DEBUG] Search panel displayed');
   
   if (initialQuery) {
     searchInput.value = initialQuery;
@@ -292,7 +290,26 @@ export function openSearch(initialQuery = '', replaceMode = false) {
   // User can tab to replace input if needed
   searchInput.focus();
   searchInput.select();
-  console.log('[DEBUG] Search input focused');
+}
+
+/**
+ * Open search panel with mode parameter
+ * @param {"find" | "replace"} mode - Search mode
+ * @param {string} initialQuery - Initial search query (optional)
+ */
+export function openSearchPanel(mode = 'find', initialQuery = '') {
+  // Get selected text from editor textarea if available
+  if (!initialQuery) {
+    const editorTextarea = document.getElementById('promptTextInput');
+    if (editorTextarea && editorTextarea.selectionStart !== editorTextarea.selectionEnd) {
+      initialQuery = editorTextarea.value.substring(
+        editorTextarea.selectionStart,
+        editorTextarea.selectionEnd
+      ).trim();
+    }
+  }
+  
+  openSearch(initialQuery, mode === 'replace');
 }
 
 /**
