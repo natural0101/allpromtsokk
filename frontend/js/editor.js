@@ -82,27 +82,54 @@ export function setupMarkdownToolbar(textarea) {
 }
 
 /**
- * Apply transformation function to each selected line
+ * Get full line information for a selection (or cursor position)
+ * Expands selection to cover entire lines that are touched
  * @param {string} text
- * @param {number} start
- * @param {number} end
- * @param {(line: string, index: number) => string} transform
- * @returns {{ newText: string, newStart: number, newEnd: number }}
+ * @param {number} selectionStart
+ * @param {number} selectionEnd
+ * @returns {{ before: string, after: string, lines: string[], lineStart: number, lineEnd: number }}
  */
-function transformSelectedLines(text, start, end, transform) {
-  const before = text.slice(0, start);
-  const selection = text.slice(start, end);
-  const after = text.slice(end);
+function getSelectedLinesInfo(text, selectionStart, selectionEnd) {
+  const safeStart = Math.max(0, selectionStart);
+  const safeEnd = Math.max(safeStart, selectionEnd);
   
-  const lines = selection.split('\n');
-  const transformedLines = lines.map((line, index) => transform(line, index));
-  const newSelection = transformedLines.join('\n');
+  const lineStart = safeStart === 0 ? 0 : text.lastIndexOf('\n', safeStart - 1) + 1;
+  const endLookupIndex =
+    safeEnd > 0 && text.charAt(safeEnd - 1) === '\n' ? safeEnd - 1 : safeEnd;
+  let lineEnd = text.indexOf('\n', endLookupIndex);
+  if (lineEnd === -1) {
+    lineEnd = text.length;
+  }
   
-  const newText = before + newSelection + after;
-  const newStart = start;
-  const newEnd = start + newSelection.length;
+  const before = text.slice(0, lineStart);
+  const selection = text.slice(lineStart, lineEnd);
+  const after = text.slice(lineEnd);
+  const lines = selection.length ? selection.split('\n') : [''];
   
-  return { newText, newStart, newEnd };
+  return { before, after, lines, lineStart, lineEnd };
+}
+
+const HEADING_PREFIX_PATTERN = /^\s*#{1,6}\s*/;
+const BULLET_PATTERN = /^\s*[-*+]\s+/;
+const NUMBER_PATTERN = /^\s*\d+\.\s+/;
+const CHECKLIST_PATTERN = /^\s*[-*+]\s+\[[ xX]\]\s+/;
+const QUOTE_PATTERN = /^\s*>\s?/;
+
+function transformSelectedLines(text, selectionStart, selectionEnd, transformer) {
+  const info = getSelectedLinesInfo(text, selectionStart, selectionEnd);
+  const transformed = transformer([...info.lines]);
+  const block = transformed.join('\n');
+  return {
+    text: info.before + block + info.after,
+    start: info.lineStart,
+    end: info.lineStart + block.length,
+  };
+}
+
+function formatHeadingLine(line, prefix) {
+  const withoutHeading = line.replace(HEADING_PREFIX_PATTERN, '');
+  const normalized = withoutHeading.replace(/^\s+/, '');
+  return normalized ? `${prefix}${normalized}` : prefix;
 }
 
 /**
@@ -176,30 +203,18 @@ export function insertAtCursor(textarea, textToInsert, addNewlineAfter = false) 
       const prefix = '#'.repeat(Math.min(Math.max(level, 1), 6)) + ' ';
       
       if (hasSelection) {
-        ({ newText, newStart: newCursorStart, newEnd: newCursorEnd } =
-          transformSelectedLines(text, start, end, (line) => {
-            const trimmed = line.trimStart();
-            const existingHashesMatch = trimmed.match(/^#{1,6}\s+/);
-            if (existingHashesMatch) {
-              return prefix + trimmed.slice(existingHashesMatch[0].length);
-            }
-            return line ? prefix + trimmed : prefix;
-          }));
+        const result = transformSelectedLines(text, start, end, (lines) =>
+          lines.map((line) => formatHeadingLine(line, prefix)),
+        );
+        newText = result.text;
+        newCursorStart = result.start;
+        newCursorEnd = result.end;
       } else {
-        const lineStart = text.lastIndexOf('\n', start - 1) + 1;
-        const beforeLine = text.slice(0, lineStart);
-        const line = text.slice(lineStart, end);
-        const after = text.slice(end);
-        const trimmed = line.trimStart();
-        const existingHashesMatch = trimmed.match(/^#{1,6}\s+/);
-        let newLine;
-        if (existingHashesMatch) {
-          newLine = prefix + trimmed.slice(existingHashesMatch[0].length);
-        } else {
-          newLine = prefix + trimmed;
-        }
-        newText = beforeLine + newLine + after;
-        newCursorStart = lineStart + prefix.length;
+        const lineInfo = getSelectedLinesInfo(text, start, start);
+        const currentLine = lineInfo.lines[0] || '';
+        const newLine = formatHeadingLine(currentLine, prefix);
+        newText = lineInfo.before + newLine + lineInfo.after;
+        newCursorStart = lineInfo.lineStart + prefix.length;
         newCursorEnd = newCursorStart;
       }
       break;
@@ -214,7 +229,7 @@ export function insertAtCursor(textarea, textToInsert, addNewlineAfter = false) 
       break;
       
     case 'underline':
-      wrapSelection('<u>', '</u>');
+      wrapSelection('__', '__');
       break;
       
     case 'strike':
@@ -225,79 +240,157 @@ export function insertAtCursor(textarea, textToInsert, addNewlineAfter = false) 
       wrapSelection('`', '`');
       break;
       
-    case 'ul':
+    case 'ul': {
       if (hasSelection) {
-        ({ newText, newStart: newCursorStart, newEnd: newCursorEnd } =
-          transformSelectedLines(text, start, end, (line) => {
-            const trimmed = line.trimStart();
-            if (!trimmed) return '- ';
-            if (/^[-*+]\s+/.test(trimmed)) return line;
-            return `- ${trimmed}`;
-          }));
+        const result = transformSelectedLines(text, start, end, (lines) => {
+          const allBulleted = lines.every((line) => !line.trim() || BULLET_PATTERN.test(line));
+          return lines.map((line) => {
+            if (!line.trim()) {
+              return allBulleted ? '' : '- ';
+            }
+            if (allBulleted) {
+              return line.replace(BULLET_PATTERN, '').trimStart();
+            }
+            const content = line.replace(BULLET_PATTERN, '').trimStart();
+            return `- ${content}`;
+          });
+        });
+        newText = result.text;
+        newCursorStart = result.start;
+        newCursorEnd = result.end;
       } else {
-        wrapSelection('- ', '');
+        const lineInfo = getSelectedLinesInfo(text, start, start);
+        const line = lineInfo.lines[0] || '';
+        const isBulleted = BULLET_PATTERN.test(line);
+        const newLine = isBulleted
+          ? line.replace(BULLET_PATTERN, '').trimStart()
+          : `- ${line.replace(BULLET_PATTERN, '').trimStart()}`;
+        newText = lineInfo.before + newLine + lineInfo.after;
+        newCursorStart = lineInfo.lineStart + (isBulleted ? 0 : 2);
+        newCursorEnd = newCursorStart;
       }
       break;
-      
-    case 'ol':
+    }
+    
+    case 'ol': {
       if (hasSelection) {
-        let counter = 1;
-        ({ newText, newStart: newCursorStart, newEnd: newCursorEnd } =
-          transformSelectedLines(text, start, end, (line) => {
-            const trimmed = line.trimStart();
-            if (!trimmed) {
+        const result = transformSelectedLines(text, start, end, (lines) => {
+          const allNumbered = lines.every((line) => !line.trim() || NUMBER_PATTERN.test(line));
+          let counter = 1;
+          return lines.map((line) => {
+            if (!line.trim()) {
+              if (allNumbered) return '';
               return `${counter++}. `;
             }
-            if (/^\d+\.\s+/.test(trimmed)) {
-              counter++;
-              return line;
+            if (allNumbered) {
+              return line.replace(NUMBER_PATTERN, '').trimStart();
             }
-            return `${counter++}. ${trimmed}`;
-          }));
+            const content = line.replace(NUMBER_PATTERN, '').trimStart();
+            return `${counter++}. ${content}`;
+          });
+        });
+        newText = result.text;
+        newCursorStart = result.start;
+        newCursorEnd = result.end;
       } else {
-        wrapSelection('1. ', '');
+        const lineInfo = getSelectedLinesInfo(text, start, start);
+        const line = lineInfo.lines[0] || '';
+        const isNumbered = NUMBER_PATTERN.test(line);
+        const newLine = isNumbered
+          ? line.replace(NUMBER_PATTERN, '').trimStart()
+          : `1. ${line.replace(NUMBER_PATTERN, '').trimStart()}`;
+        newText = lineInfo.before + newLine + lineInfo.after;
+        newCursorStart = lineInfo.lineStart + (isNumbered ? 0 : 3);
+        newCursorEnd = newCursorStart;
       }
       break;
+    }
       
-    case 'checklist':
+    case 'checklist': {
       if (hasSelection) {
-        ({ newText, newStart: newCursorStart, newEnd: newCursorEnd } =
-          transformSelectedLines(text, start, end, (line) => {
-            const trimmed = line.trimStart();
-            if (!trimmed) return '- [ ] ';
-            if (/^[-*+]\s+\[[ xX]\]\s+/.test(trimmed)) return line;
-            return `- [ ] ${trimmed}`;
-          }));
+        const result = transformSelectedLines(text, start, end, (lines) => {
+          const allChecklist = lines.every((line) => !line.trim() || CHECKLIST_PATTERN.test(line));
+          return lines.map((line) => {
+            if (!line.trim()) {
+              return allChecklist ? '' : '- [ ] ';
+            }
+            if (allChecklist) {
+              return line.replace(CHECKLIST_PATTERN, '').trimStart();
+            }
+            const content = line.replace(CHECKLIST_PATTERN, '').trimStart();
+            return `- [ ] ${content}`;
+          });
+        });
+        newText = result.text;
+        newCursorStart = result.start;
+        newCursorEnd = result.end;
       } else {
-        wrapSelection('- [ ] ', '');
+        const lineInfo = getSelectedLinesInfo(text, start, start);
+        const line = lineInfo.lines[0] || '';
+        const isChecklist = CHECKLIST_PATTERN.test(line);
+        const newLine = isChecklist
+          ? line.replace(CHECKLIST_PATTERN, '').trimStart()
+          : `- [ ] ${line.replace(CHECKLIST_PATTERN, '').trimStart()}`;
+        newText = lineInfo.before + newLine + lineInfo.after;
+        newCursorStart = lineInfo.lineStart + (isChecklist ? 0 : 6);
+        newCursorEnd = newCursorStart;
       }
       break;
+    }
       
-    case 'quote':
+    case 'quote': {
       if (hasSelection) {
-        ({ newText, newStart: newCursorStart, newEnd: newCursorEnd } =
-          transformSelectedLines(text, start, end, (line) => {
-            const trimmed = line.trimStart();
-            if (!trimmed) return '> ';
-            if (/^>\s+/.test(trimmed)) return line;
-            return `> ${trimmed}`;
-          }));
+        const result = transformSelectedLines(text, start, end, (lines) => {
+          const allQuoted = lines.every((line) => !line.trim() || QUOTE_PATTERN.test(line));
+          return lines.map((line) => {
+            if (!line.trim()) {
+              return allQuoted ? '' : '> ';
+            }
+            if (allQuoted) {
+              return line.replace(QUOTE_PATTERN, '').trimStart();
+            }
+            const content = line.replace(QUOTE_PATTERN, '').trimStart();
+            return `> ${content}`;
+          });
+        });
+        newText = result.text;
+        newCursorStart = result.start;
+        newCursorEnd = result.end;
       } else {
-        wrapSelection('> ', '');
+        const lineInfo = getSelectedLinesInfo(text, start, start);
+        const line = lineInfo.lines[0] || '';
+        const isQuoted = QUOTE_PATTERN.test(line);
+        const newLine = isQuoted
+          ? line.replace(QUOTE_PATTERN, '').trimStart()
+          : `> ${line.replace(QUOTE_PATTERN, '').trimStart()}`;
+        newText = lineInfo.before + newLine + lineInfo.after;
+        newCursorStart = lineInfo.lineStart + (isQuoted ? 0 : 2);
+        newCursorEnd = newCursorStart;
       }
       break;
+    }
       
     case 'code':
     case 'code-block': {
       const inner = selectedText || '';
       const before = text.slice(0, start);
       const after = text.slice(end);
+      const trimmed = inner.trim();
+      const looksLikeCodeBlock =
+        trimmed.startsWith('```') && trimmed.endsWith('```');
+      if (hasSelection && looksLikeCodeBlock) {
+        newText = text;
+        newCursorStart = start;
+        newCursorEnd = end;
+        break;
+      }
       if (hasSelection) {
         newText = `${before}\`\`\`\n${inner}\n\`\`\`${after}`;
         newCursorStart = start + 4;
         newCursorEnd = newCursorStart + inner.length;
       } else {
-        newText = `${before}\`\`\`\n\n\`\`\`${after}`;
+        const block = '```\n\n```';
+        newText = `${before}${block}${after}`;
         newCursorStart = start + 4;
         newCursorEnd = newCursorStart;
       }
